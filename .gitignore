@@ -1,0 +1,48 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
+*.db
+*.db-shm
+*.db-wal
+
+# Visual Studio
+.vs/
+*.sln.docstates
+
+# Frontend
+node_modules/
+dist/
+.vite/
+*.local
+
+# Environment files
+appsettings.Development.json
+.env
+.env.local
+.env.production.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
