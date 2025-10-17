@@ -1,11 +1,15 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { userApi } from './services/api';
+import { mockUser } from './services/mockData';
 import Dashboard from './pages/Dashboard';
 import InventoryList from './pages/InventoryList';
 import CsvUpload from './pages/CsvUpload';
 import Configuration from './pages/Configuration';
 import './index.css';
+
+// Use mock data for demo purposes
+const USE_MOCK_DATA = true;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,7 +23,7 @@ const queryClient = new QueryClient({
 function Navigation() {
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
-    queryFn: userApi.getCurrentUser,
+    queryFn: USE_MOCK_DATA ? async () => mockUser : userApi.getCurrentUser,
   });
 
   return (

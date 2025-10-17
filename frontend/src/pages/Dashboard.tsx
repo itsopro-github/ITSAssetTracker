@@ -1,19 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { inventoryApi } from '../services/api';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { mockDashboardStats, mockInventoryItems } from '../services/mockData';
+
+// Use mock data for demo purposes
+const USE_MOCK_DATA = true;
 
 function Dashboard() {
+  const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState('7d');
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboardStats'],
-    queryFn: inventoryApi.getDashboardStats,
+    queryFn: USE_MOCK_DATA ? async () => mockDashboardStats : inventoryApi.getDashboardStats,
   });
 
   const { data: allItems, isLoading: itemsLoading } = useQuery({
     queryKey: ['inventory'],
-    queryFn: () => inventoryApi.getAll({}),
+    queryFn: USE_MOCK_DATA ? async () => mockInventoryItems : () => inventoryApi.getAll({}),
   });
 
   const lowStockItems = useMemo(() => {
@@ -41,6 +47,8 @@ function Dashboard() {
     return grouped.sort((a, b) => b.count - a.count);
   }, [allItems]);
 
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4'];
+
   const recentActivityData = useMemo(() => {
     if (!stats?.recentChanges) return [];
 
@@ -64,25 +72,48 @@ function Dashboard() {
 
   return (
     <div>
-      <h1 className="mb-3">Dashboard</h1>
+      <div style={{ marginBottom: '2rem' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#111827', marginBottom: '0.5rem' }}>Asset Management Dashboard</h1>
+        <p style={{ color: '#6b7280', fontSize: '1rem' }}>Track and manage your hardware inventory in real-time</p>
+      </div>
 
       {/* Stats Overview */}
       <div className="stats-grid">
-        <div className="stat-card">
-          <h3>Total Items</h3>
-          <div className="value">{stats?.totalItems || 0}</div>
+        <div className="stat-card" onClick={() => navigate('/inventory')} style={{ cursor: 'pointer' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h3>Total Items</h3>
+              <div className="value">{stats?.totalItems || 0}</div>
+              <p style={{ fontSize: '0.8125rem', color: '#9ca3af', marginTop: '0.5rem' }}>Unique SKUs</p>
+            </div>
+          </div>
         </div>
-        <div className="stat-card danger">
-          <h3>Low Stock Items</h3>
-          <div className="value">{stats?.lowStockCount || 0}</div>
+        <div className="stat-card danger" onClick={() => navigate('/inventory')} style={{ cursor: 'pointer' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h3>Low Stock Alert</h3>
+              <div className="value">{stats?.lowStockCount || 0}</div>
+              <p style={{ fontSize: '0.8125rem', color: '#9ca3af', marginTop: '0.5rem' }}>Need reordering</p>
+            </div>
+          </div>
         </div>
-        <div className="stat-card">
-          <h3>Total Inventory Value</h3>
-          <div className="value">${(stats?.totalValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+        <div className="stat-card" onClick={() => navigate('/inventory')} style={{ cursor: 'pointer' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h3>Total Value</h3>
+              <div className="value">${(stats?.totalValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+              <p style={{ fontSize: '0.8125rem', color: '#9ca3af', marginTop: '0.5rem' }}>Asset worth</p>
+            </div>
+          </div>
         </div>
-        <div className="stat-card">
-          <h3>Recent Changes</h3>
-          <div className="value">{stats?.recentChanges?.length || 0}</div>
+        <div className="stat-card" onClick={() => navigate('/inventory')} style={{ cursor: 'pointer' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h3>Recent Activity</h3>
+              <div className="value">{stats?.recentChanges?.length || 0}</div>
+              <p style={{ fontSize: '0.8125rem', color: '#9ca3af', marginTop: '0.5rem' }}>This week</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -94,32 +125,79 @@ function Dashboard() {
       )}
 
       {/* Charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
         <div className="card">
-          <h2>Inventory by Type</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={inventoryByType}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="type" />
-              <YAxis />
+          <h2>Inventory Distribution</h2>
+          <ResponsiveContainer width="100%" height={350}>
+            <PieChart>
+              <Pie
+                data={inventoryByType}
+                dataKey="count"
+                nameKey="type"
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                label={({ type, count }) => `${type}: ${count}`}
+              >
+                {inventoryByType.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
               <Tooltip />
-              <Legend />
-              <Bar dataKey="count" fill="#1976d2" name="Item Count" />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="card">
+          <h2>Inventory Count by Category</h2>
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart data={inventoryByType}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+              <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+              <YAxis />
+              <Tooltip
+                contentStyle={{ background: 'rgba(255, 255, 255, 0.95)', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}
+              />
+              <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         <div className="card">
-          <h2>Recent Activity</h2>
-          <ResponsiveContainer width="100%" height={300}>
+          <h2>Activity Trend</h2>
+          <ResponsiveContainer width="100%" height={350}>
             <LineChart data={recentActivityData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+              <XAxis dataKey="date" tick={{ fontSize: 12 }} />
               <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="changes" stroke="#1976d2" name="Changes" />
+              <Tooltip
+                contentStyle={{ background: 'rgba(255, 255, 255, 0.95)', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}
+              />
+              <Line
+                type="monotone"
+                dataKey="changes"
+                stroke="#10b981"
+                strokeWidth={2}
+                dot={{ fill: '#10b981', r: 4 }}
+                name="Changes"
+              />
             </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="card">
+          <h2>Inventory Value by Type</h2>
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart data={inventoryByType}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+              <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+              <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
+              <Tooltip
+                contentStyle={{ background: 'rgba(255, 255, 255, 0.95)', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}
+                formatter={(value: number) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+              />
+              <Bar dataKey="value" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Total Value" />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -142,7 +220,7 @@ function Dashboard() {
               </thead>
               <tbody>
                 {lowStockItems.map(item => (
-                  <tr key={item.id}>
+                  <tr key={item.id} onClick={() => navigate('/inventory')} style={{ cursor: 'pointer' }}>
                     <td>{item.itemNumber}</td>
                     <td>{item.hardwareDescription}</td>
                     <td>{item.hardwareType}</td>
@@ -175,13 +253,13 @@ function Dashboard() {
               </thead>
               <tbody>
                 {stats.recentChanges.map(change => (
-                  <tr key={change.id}>
+                  <tr key={change.id} onClick={() => navigate('/inventory')} style={{ cursor: 'pointer' }}>
                     <td>{new Date(change.changeDate).toLocaleString()}</td>
                     <td>{change.item?.itemNumber}</td>
                     <td>{change.previousQuantity}</td>
                     <td>{change.newQuantity}</td>
                     <td>{change.changedBy}</td>
-                    <td>
+                    <td onClick={(e) => e.stopPropagation()}>
                       {change.serviceNowTicketUrl ? (
                         <a href={change.serviceNowTicketUrl} target="_blank" rel="noopener noreferrer">
                           View Ticket

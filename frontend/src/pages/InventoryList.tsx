@@ -1,7 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryApi, userApi } from '../services/api';
+import { mockInventoryItems, mockUser } from '../services/mockData';
 import type { FilterOptions, UpdateInventoryDto } from '../types';
+
+// Use mock data for demo purposes
+const USE_MOCK_DATA = true;
 
 function InventoryList() {
   const queryClient = useQueryClient();
@@ -20,17 +24,41 @@ function InventoryList() {
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
-    queryFn: userApi.getCurrentUser,
+    queryFn: USE_MOCK_DATA ? async () => mockUser : userApi.getCurrentUser,
   });
 
   const { data: items, isLoading } = useQuery({
     queryKey: ['inventory', filters],
-    queryFn: () => inventoryApi.getAll(filters),
+    queryFn: USE_MOCK_DATA ? async () => {
+      // Apply client-side filtering for mock data
+      let filtered = [...mockInventoryItems];
+
+      if (filters.search) {
+        const search = filters.search.toLowerCase();
+        filtered = filtered.filter(item =>
+          item.itemNumber.toLowerCase().includes(search) ||
+          item.hardwareDescription.toLowerCase().includes(search)
+        );
+      }
+
+      if (filters.hardwareType) {
+        filtered = filtered.filter(item => item.hardwareType === filters.hardwareType);
+      }
+
+      if (filters.needsReorder !== undefined) {
+        filtered = filtered.filter(item => item.needsReorder === filters.needsReorder);
+      }
+
+      return filtered;
+    } : () => inventoryApi.getAll(filters),
   });
 
   const { data: hardwareTypes } = useQuery({
     queryKey: ['hardwareTypes'],
-    queryFn: inventoryApi.getHardwareTypes,
+    queryFn: USE_MOCK_DATA ? async () => {
+      const types = [...new Set(mockInventoryItems.map(item => item.hardwareType))];
+      return types.sort();
+    } : inventoryApi.getHardwareTypes,
   });
 
   const updateMutation = useMutation({
