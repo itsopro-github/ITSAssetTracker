@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryApi, userApi } from '../services/api';
 import { mockInventoryItems, mockUser } from '../services/mockData';
@@ -25,7 +25,6 @@ function InventoryList() {
     assignedTo: string;
     ticketUrl: string;
   }>>([{ id: '1', quantity: 1, assignedTo: '', ticketUrl: '' }]);
-  const [userSearchQuery, setUserSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
 
@@ -73,10 +72,7 @@ function InventoryList() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-      setShowUpdateModal(false);
-      setSelectedItem(null);
-      setQuantityChange(0);
-      setTicketUrl('');
+      closeModal();
       alert('Inventory updated successfully');
     },
     onError: (error: any) => {
@@ -99,6 +95,13 @@ function InventoryList() {
   };
 
   const addAssignment = () => {
+    // Validate current assignments before adding new one
+    const hasEmptyAssignments = assignments.some(a => !a.assignedTo || a.quantity <= 0);
+    if (hasEmptyAssignments) {
+      alert('Please complete all existing assignments before adding a new one.');
+      return;
+    }
+
     setAssignments([...assignments, {
       id: Date.now().toString(),
       quantity: 1,
@@ -120,7 +123,6 @@ function InventoryList() {
   };
 
   const handleUserSearch = async (query: string, index: number) => {
-    setUserSearchQuery(query);
     setActiveSearchIndex(index);
 
     if (query.length >= 2) {
@@ -146,14 +148,36 @@ function InventoryList() {
     updateAssignment(assignmentId, 'assignedTo', user);
     setSearchResults([]);
     setActiveSearchIndex(null);
-    setUserSearchQuery('');
   };
 
   const handleUpdate = () => {
     if (!selectedItem) return;
 
+    // Validate all assignments
+    const invalidAssignments = assignments.filter(a => !a.assignedTo || a.quantity <= 0);
+    if (invalidAssignments.length > 0) {
+      alert('Please ensure all assignments have a user selected and quantity greater than 0.');
+      return;
+    }
+
     // Calculate total quantity being assigned
     const totalQuantity = assignments.reduce((sum, a) => sum + a.quantity, 0);
+
+    // Check if we have enough inventory
+    const currentItem = items?.find(item => item.itemNumber === selectedItem);
+    if (currentItem && totalQuantity > currentItem.currentQuantity) {
+      alert(`Cannot assign ${totalQuantity} items. Only ${currentItem.currentQuantity} available in stock.`);
+      return;
+    }
+
+    // Validate ServiceNow URLs if provided
+    const invalidUrls = assignments.filter(a =>
+      a.ticketUrl && !a.ticketUrl.match(/^https?:\/\/.+/)
+    );
+    if (invalidUrls.length > 0) {
+      alert('Please enter valid URLs for ServiceNow tickets (must start with http:// or https://)');
+      return;
+    }
 
     // In a real implementation, you'd process each assignment separately
     // For now, we'll submit the first one as an example
@@ -176,7 +200,20 @@ function InventoryList() {
   };
 
   if (isLoading) {
-    return <div className="loading"><div className="spinner"></div></div>;
+    return (
+      <div className="loading">
+        <div className="spinner"></div>
+        <p style={{ marginTop: '1rem', color: '#6b7280' }}>Loading inventory...</p>
+      </div>
+    );
+  }
+
+  if (!items) {
+    return (
+      <div className="alert alert-error">
+        <strong>Error:</strong> Failed to load inventory data. Please refresh the page.
+      </div>
+    );
   }
 
   const canEdit = user?.roles.isServiceDesk;
@@ -351,28 +388,38 @@ function InventoryList() {
                   </div>
 
                   <div className="form-group">
-                    <label>Quantity</label>
+                    <label>Quantity <span style={{ color: '#dc2626' }}>*</span></label>
                     <input
                       type="number"
                       min="1"
                       className="form-control"
                       value={assignment.quantity}
-                      onChange={e => updateAssignment(assignment.id, 'quantity', parseInt(e.target.value) || 1)}
+                      onChange={e => {
+                        const value = parseInt(e.target.value);
+                        if (value > 0 || e.target.value === '') {
+                          updateAssignment(assignment.id, 'quantity', value || 1);
+                        }
+                      }}
                       placeholder="1"
+                      required
+                      aria-required="true"
                     />
                   </div>
 
                   <div className="form-group" style={{ position: 'relative' }}>
-                    <label>Assign To (User Email)</label>
+                    <label>Assign To (User Email) <span style={{ color: '#dc2626' }}>*</span></label>
                     <input
-                      type="text"
+                      type="email"
                       className="form-control"
                       value={assignment.assignedTo}
                       onChange={e => {
-                        updateAssignment(assignment.id, 'assignedTo', e.target.value);
-                        handleUserSearch(e.target.value, index);
+                        updateAssignment(assignment.id, 'assignedTo', e.target.value.trim());
+                        handleUserSearch(e.target.value.trim(), index);
                       }}
                       placeholder="Search user by email..."
+                      required
+                      aria-required="true"
+                      aria-label="User email address"
                     />
                     {searchResults.length > 0 && activeSearchIndex === index && (
                       <div style={{
@@ -412,12 +459,19 @@ function InventoryList() {
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>ServiceNow Ticket URL (Optional)</label>
                     <input
-                      type="text"
+                      type="url"
                       className="form-control"
                       value={assignment.ticketUrl}
-                      onChange={e => updateAssignment(assignment.id, 'ticketUrl', e.target.value)}
+                      onChange={e => updateAssignment(assignment.id, 'ticketUrl', e.target.value.trim())}
                       placeholder="https://servicenow.company.com/ticket/..."
+                      pattern="https?://.+"
+                      aria-label="ServiceNow ticket URL"
                     />
+                    {assignment.ticketUrl && !assignment.ticketUrl.match(/^https?:\/\/.+/) && (
+                      <small style={{ color: '#dc2626', fontSize: '0.75rem' }}>
+                        Please enter a valid URL (must start with http:// or https://)
+                      </small>
+                    )}
                   </div>
                 </div>
               ))}

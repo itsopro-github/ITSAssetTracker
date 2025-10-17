@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { inventoryApi } from '../services/api';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-import { useState, useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mockDashboardStats, mockInventoryItems } from '../services/mockData';
 
@@ -10,7 +10,6 @@ const USE_MOCK_DATA = true;
 
 function Dashboard() {
   const navigate = useNavigate();
-  const [timeRange, setTimeRange] = useState('7d');
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboardStats'],
@@ -67,7 +66,20 @@ function Dashboard() {
   }, [stats]);
 
   if (statsLoading || itemsLoading) {
-    return <div className="loading"><div className="spinner"></div></div>;
+    return (
+      <div className="loading">
+        <div className="spinner"></div>
+        <p style={{ marginTop: '1rem', color: '#6b7280' }}>Loading dashboard...</p>
+      </div>
+    );
+  }
+
+  if (!stats || !allItems) {
+    return (
+      <div className="alert alert-error">
+        <strong>Error:</strong> Failed to load dashboard data. Please refresh the page.
+      </div>
+    );
   }
 
   return (
@@ -79,7 +91,15 @@ function Dashboard() {
 
       {/* Stats Overview */}
       <div className="stats-grid">
-        <div className="stat-card" onClick={() => navigate('/inventory')} style={{ cursor: 'pointer' }}>
+        <div
+          className="stat-card"
+          onClick={() => navigate('/inventory')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/inventory')}
+          role="button"
+          tabIndex={0}
+          aria-label="View total items in inventory"
+          style={{ cursor: 'pointer' }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <h3>Total Items</h3>
@@ -88,7 +108,15 @@ function Dashboard() {
             </div>
           </div>
         </div>
-        <div className="stat-card danger" onClick={() => navigate('/inventory')} style={{ cursor: 'pointer' }}>
+        <div
+          className="stat-card danger"
+          onClick={() => navigate('/inventory')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/inventory')}
+          role="button"
+          tabIndex={0}
+          aria-label="View low stock items"
+          style={{ cursor: 'pointer' }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <h3>Low Stock Alert</h3>
@@ -97,7 +125,15 @@ function Dashboard() {
             </div>
           </div>
         </div>
-        <div className="stat-card" onClick={() => navigate('/inventory')} style={{ cursor: 'pointer' }}>
+        <div
+          className="stat-card"
+          onClick={() => navigate('/inventory')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/inventory')}
+          role="button"
+          tabIndex={0}
+          aria-label="View total inventory value"
+          style={{ cursor: 'pointer' }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <h3>Total Value</h3>
@@ -106,7 +142,15 @@ function Dashboard() {
             </div>
           </div>
         </div>
-        <div className="stat-card" onClick={() => navigate('/inventory')} style={{ cursor: 'pointer' }}>
+        <div
+          className="stat-card"
+          onClick={() => navigate('/inventory')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/inventory')}
+          role="button"
+          tabIndex={0}
+          aria-label="View recent activity"
+          style={{ cursor: 'pointer' }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <h3>Recent Activity</h3>
@@ -139,7 +183,7 @@ function Dashboard() {
                 outerRadius={100}
                 label={({ type, count }) => `${type}: ${count}`}
               >
-                {inventoryByType.map((entry, index) => (
+                {inventoryByType.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>

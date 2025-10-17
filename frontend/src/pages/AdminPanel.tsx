@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { csvApi, configApi, inventoryApi, userApi } from '../services/api';
+import { useQuery } from '@tanstack/react-query';
+import { inventoryApi, userApi } from '../services/api';
 import { mockUser, mockInventoryItems } from '../services/mockData';
-import type { NotificationConfig, InventoryItem } from '../types';
+import type { InventoryItem } from '../types';
 
 // Use mock data for demo purposes
 const USE_MOCK_DATA = true;
 
 function AdminPanel() {
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'inventory' | 'upload' | 'config'>('inventory');
 
   const { data: user } = useQuery({

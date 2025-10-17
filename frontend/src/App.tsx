@@ -5,6 +5,7 @@ import { mockUser } from './services/mockData';
 import Dashboard from './pages/Dashboard';
 import InventoryList from './pages/InventoryList';
 import AdminPanel from './pages/AdminPanel';
+import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
 // Use mock data for demo purposes
@@ -49,20 +50,22 @@ function Navigation() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Router>
-        <div className="App">
-          <Navigation />
-          <div className="container">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/inventory" element={<InventoryList />} />
-              <Route path="/admin" element={<AdminPanel />} />
-            </Routes>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <div className="App">
+            <Navigation />
+            <div className="container">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/inventory" element={<InventoryList />} />
+                <Route path="/admin" element={<AdminPanel />} />
+              </Routes>
+            </div>
           </div>
-        </div>
-      </Router>
-    </QueryClientProvider>
+        </Router>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
