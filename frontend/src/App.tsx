@@ -4,8 +4,7 @@ import { userApi } from './services/api';
 import { mockUser } from './services/mockData';
 import Dashboard from './pages/Dashboard';
 import InventoryList from './pages/InventoryList';
-import CsvUpload from './pages/CsvUpload';
-import Configuration from './pages/Configuration';
+import AdminPanel from './pages/AdminPanel';
 import './index.css';
 
 // Use mock data for demo purposes
@@ -33,14 +32,14 @@ function Navigation() {
         <nav>
           <Link to="/">Dashboard</Link>
           <Link to="/inventory">Inventory</Link>
-          {user?.roles.isServiceDesk && <Link to="/upload">CSV Upload</Link>}
-          {user?.roles.isAdmin && <Link to="/config">Configuration</Link>}
+          {user?.roles.isAdmin && <Link to="/admin">Admin</Link>}
         </nav>
         {user && (
           <div className="user-info">
             Logged in as: {user.username}
-            {user.roles.isServiceDesk && ' (Service Desk)'}
-            {user.roles.isReadOnly && !user.roles.isServiceDesk && ' (Read Only)'}
+            {user.roles.isAdmin && ' (Admin)'}
+            {user.roles.isServiceDesk && !user.roles.isAdmin && ' (Service Desk)'}
+            {user.roles.isReadOnly && !user.roles.isServiceDesk && !user.roles.isAdmin && ' (Read Only)'}
           </div>
         )}
       </div>
@@ -58,8 +57,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/inventory" element={<InventoryList />} />
-              <Route path="/upload" element={<CsvUpload />} />
-              <Route path="/config" element={<Configuration />} />
+              <Route path="/admin" element={<AdminPanel />} />
             </Routes>
           </div>
         </div>

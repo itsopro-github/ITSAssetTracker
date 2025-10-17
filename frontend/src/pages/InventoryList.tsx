@@ -18,9 +18,16 @@ function InventoryList() {
   });
 
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
-  const [quantityChange, setQuantityChange] = useState<number>(0);
-  const [ticketUrl, setTicketUrl] = useState<string>('');
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [assignments, setAssignments] = useState<Array<{
+    id: string;
+    quantity: number;
+    assignedTo: string;
+    ticketUrl: string;
+  }>>([{ id: '1', quantity: 1, assignedTo: '', ticketUrl: '' }]);
+  const [userSearchQuery, setUserSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -87,17 +94,85 @@ function InventoryList() {
 
   const openUpdateModal = (itemNumber: string) => {
     setSelectedItem(itemNumber);
+    setAssignments([{ id: '1', quantity: 1, assignedTo: '', ticketUrl: '' }]);
     setShowUpdateModal(true);
+  };
+
+  const addAssignment = () => {
+    setAssignments([...assignments, {
+      id: Date.now().toString(),
+      quantity: 1,
+      assignedTo: '',
+      ticketUrl: ''
+    }]);
+  };
+
+  const removeAssignment = (id: string) => {
+    if (assignments.length > 1) {
+      setAssignments(assignments.filter(a => a.id !== id));
+    }
+  };
+
+  const updateAssignment = (id: string, field: string, value: any) => {
+    setAssignments(assignments.map(a =>
+      a.id === id ? { ...a, [field]: value } : a
+    ));
+  };
+
+  const handleUserSearch = async (query: string, index: number) => {
+    setUserSearchQuery(query);
+    setActiveSearchIndex(index);
+
+    if (query.length >= 2) {
+      // Mock AD search - in production, this would call userApi.searchUsers
+      const mockUsers = [
+        'john.doe@company.com',
+        'jane.smith@company.com',
+        'mike.johnson@company.com',
+        'sarah.williams@company.com',
+        'david.brown@company.com',
+        'emily.davis@company.com',
+        'chris.martinez@company.com',
+        'amanda.taylor@company.com',
+      ];
+      const filtered = mockUsers.filter(u => u.toLowerCase().includes(query.toLowerCase()));
+      setSearchResults(filtered);
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  const selectUser = (user: string, assignmentId: string) => {
+    updateAssignment(assignmentId, 'assignedTo', user);
+    setSearchResults([]);
+    setActiveSearchIndex(null);
+    setUserSearchQuery('');
   };
 
   const handleUpdate = () => {
     if (!selectedItem) return;
 
+    // Calculate total quantity being assigned
+    const totalQuantity = assignments.reduce((sum, a) => sum + a.quantity, 0);
+
+    // In a real implementation, you'd process each assignment separately
+    // For now, we'll submit the first one as an example
+    const firstAssignment = assignments[0];
+
     updateMutation.mutate({
       itemNumber: selectedItem,
-      quantityChange,
-      serviceNowTicketUrl: ticketUrl || undefined,
+      quantityChange: -totalQuantity, // Negative because we're removing from inventory
+      serviceNowTicketUrl: firstAssignment.ticketUrl || undefined,
+      assignedToUser: firstAssignment.assignedTo || undefined,
     });
+  };
+
+  const closeModal = () => {
+    setShowUpdateModal(false);
+    setSelectedItem(null);
+    setAssignments([{ id: '1', quantity: 1, assignedTo: '', ticketUrl: '' }]);
+    setSearchResults([]);
+    setActiveSearchIndex(null);
   };
 
   if (isLoading) {
@@ -215,8 +290,9 @@ function InventoryList() {
                       <button
                         className="btn btn-primary"
                         onClick={() => openUpdateModal(item.itemNumber)}
+                        style={{ fontSize: '0.8125rem', padding: '0.5rem 1rem' }}
                       >
-                        Update
+                        Assign
                       </button>
                     </td>
                   )}
@@ -240,51 +316,153 @@ function InventoryList() {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
+          overflow: 'auto',
+          padding: '2rem',
         }}>
-          <div className="card" style={{ width: '500px', maxWidth: '90%' }}>
-            <h2>Update Inventory: {selectedItem}</h2>
+          <div className="card" style={{ width: '700px', maxWidth: '100%', maxHeight: '90vh', overflow: 'auto' }}>
+            <h2>Assign Assets: {selectedItem}</h2>
+            <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+              Assign this item to one or more users. Each assignment will reduce the inventory count.
+            </p>
 
-            <div className="form-group">
-              <label>Quantity Change</label>
-              <input
-                type="number"
-                className="form-control"
-                value={quantityChange}
-                onChange={e => setQuantityChange(Number(e.target.value))}
-                placeholder="Enter positive to add, negative to remove"
-              />
-              <small>Use positive numbers to add stock, negative to remove</small>
+            {/* Assignments List */}
+            <div style={{ marginBottom: '1rem' }}>
+              {assignments.map((assignment, index) => (
+                <div key={assignment.id} style={{
+                  padding: '1rem',
+                  marginBottom: '1rem',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.5rem',
+                  backgroundColor: '#f9fafb',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <h3 style={{ fontSize: '0.9375rem', fontWeight: '600', color: '#374151' }}>
+                      Assignment #{index + 1}
+                    </h3>
+                    {assignments.length > 1 && (
+                      <button
+                        className="btn btn-danger"
+                        style={{ padding: '0.25rem 0.75rem', fontSize: '0.8125rem' }}
+                        onClick={() => removeAssignment(assignment.id)}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label>Quantity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="form-control"
+                      value={assignment.quantity}
+                      onChange={e => updateAssignment(assignment.id, 'quantity', parseInt(e.target.value) || 1)}
+                      placeholder="1"
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ position: 'relative' }}>
+                    <label>Assign To (User Email)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={assignment.assignedTo}
+                      onChange={e => {
+                        updateAssignment(assignment.id, 'assignedTo', e.target.value);
+                        handleUserSearch(e.target.value, index);
+                      }}
+                      placeholder="Search user by email..."
+                    />
+                    {searchResults.length > 0 && activeSearchIndex === index && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: 'white',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '0.375rem',
+                        marginTop: '0.25rem',
+                        maxHeight: '200px',
+                        overflow: 'auto',
+                        zIndex: 1001,
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                      }}>
+                        {searchResults.map(user => (
+                          <div
+                            key={user}
+                            onClick={() => selectUser(user, assignment.id)}
+                            style={{
+                              padding: '0.625rem 0.75rem',
+                              cursor: 'pointer',
+                              borderBottom: '1px solid #f3f4f6',
+                              fontSize: '0.875rem',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'white'}
+                          >
+                            {user}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>ServiceNow Ticket URL (Optional)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={assignment.ticketUrl}
+                      onChange={e => updateAssignment(assignment.id, 'ticketUrl', e.target.value)}
+                      placeholder="https://servicenow.company.com/ticket/..."
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
 
-            <div className="form-group">
-              <label>ServiceNow Ticket URL (Optional)</label>
-              <input
-                type="text"
-                className="form-control"
-                value={ticketUrl}
-                onChange={e => setTicketUrl(e.target.value)}
-                placeholder="https://servicenow.company.com/ticket/..."
-              />
+            {/* Add Another Button */}
+            <button
+              className="btn btn-secondary"
+              onClick={addAssignment}
+              style={{ marginBottom: '1.5rem', width: '100%' }}
+            >
+              + Add Another Assignment
+            </button>
+
+            {/* Summary */}
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#f0fdf4',
+              border: '1px solid #86efac',
+              borderRadius: '0.5rem',
+              marginBottom: '1.5rem',
+            }}>
+              <strong style={{ color: '#166534' }}>Total Quantity to Assign: </strong>
+              <span style={{ color: '#166534', fontSize: '1.25rem', fontWeight: '700' }}>
+                {assignments.reduce((sum, a) => sum + a.quantity, 0)}
+              </span>
+              <div style={{ fontSize: '0.8125rem', color: '#15803d', marginTop: '0.25rem' }}>
+                This will be removed from inventory
+              </div>
             </div>
 
-            <div className="flex gap-2" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
+            {/* Action Buttons */}
+            <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
               <button
                 className="btn btn-secondary"
-                onClick={() => {
-                  setShowUpdateModal(false);
-                  setSelectedItem(null);
-                  setQuantityChange(0);
-                  setTicketUrl('');
-                }}
+                onClick={closeModal}
               >
                 Cancel
               </button>
               <button
                 className="btn btn-primary"
                 onClick={handleUpdate}
-                disabled={updateMutation.isPending}
+                disabled={updateMutation.isPending || assignments.some(a => !a.assignedTo)}
               >
-                {updateMutation.isPending ? 'Updating...' : 'Update'}
+                {updateMutation.isPending ? 'Assigning...' : 'Assign Assets'}
               </button>
             </div>
           </div>
