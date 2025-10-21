@@ -1,8 +1,9 @@
 export interface InventoryItem {
   id: number;
   itemNumber: string;
-  hardwareDescription: string;
-  hardwareType: string;
+  assetType: string; // "Hardware" or "Software"
+  description: string;
+  category?: string;
   cost: number;
   minimumThreshold: number;
   reorderAmount: number;
@@ -10,6 +11,9 @@ export interface InventoryItem {
   lastModifiedBy: string;
   lastModifiedDate: string;
   needsReorder: boolean;
+  // Legacy fields for backward compatibility
+  hardwareDescription?: string;
+  hardwareType?: string;
 }
 
 export interface AuditHistory {
@@ -61,7 +65,9 @@ export interface DashboardStats {
 
 export interface FilterOptions {
   search?: string;
-  hardwareType?: string;
+  assetType?: string; // "Hardware" or "Software"
+  category?: string;
+  hardwareType?: string; // Legacy - for backward compatibility
   needsReorder?: boolean;
   sortBy?: string;
   sortDesc?: boolean;

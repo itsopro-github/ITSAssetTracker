@@ -34,7 +34,9 @@ public class InventoryController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<InventoryDto>>> GetAll(
         [FromQuery] string? search,
-        [FromQuery] string? hardwareType,
+        [FromQuery] string? assetType,
+        [FromQuery] string? category,
+        [FromQuery] string? hardwareType, // Legacy parameter
         [FromQuery] bool? needsReorder,
         [FromQuery] string? sortBy,
         [FromQuery] bool sortDesc = false)
@@ -46,12 +48,26 @@ public class InventoryController : ControllerBase
         {
             query = query.Where(i =>
                 i.ItemNumber.Contains(search) ||
-                i.HardwareDescription.Contains(search));
+                (i.Description != null && i.Description.Contains(search)) ||
+                (i.HardwareDescription != null && i.HardwareDescription.Contains(search)));
         }
 
+        // New asset type filter
+        if (!string.IsNullOrEmpty(assetType))
+        {
+            query = query.Where(i => i.AssetType == assetType);
+        }
+
+        // New category filter
+        if (!string.IsNullOrEmpty(category))
+        {
+            query = query.Where(i => i.Category == category || i.HardwareType == category);
+        }
+
+        // Legacy hardware type filter (for backward compatibility)
         if (!string.IsNullOrEmpty(hardwareType))
         {
-            query = query.Where(i => i.HardwareType == hardwareType);
+            query = query.Where(i => i.HardwareType == hardwareType || i.Category == hardwareType);
         }
 
         if (needsReorder == true)
@@ -63,8 +79,9 @@ public class InventoryController : ControllerBase
         query = sortBy?.ToLower() switch
         {
             "itemnumber" => sortDesc ? query.OrderByDescending(i => i.ItemNumber) : query.OrderBy(i => i.ItemNumber),
-            "description" => sortDesc ? query.OrderByDescending(i => i.HardwareDescription) : query.OrderBy(i => i.HardwareDescription),
-            "type" => sortDesc ? query.OrderByDescending(i => i.HardwareType) : query.OrderBy(i => i.HardwareType),
+            "description" => sortDesc ? query.OrderByDescending(i => i.Description ?? i.HardwareDescription) : query.OrderBy(i => i.Description ?? i.HardwareDescription),
+            "type" => sortDesc ? query.OrderByDescending(i => i.Category ?? i.HardwareType) : query.OrderBy(i => i.Category ?? i.HardwareType),
+            "assettype" => sortDesc ? query.OrderByDescending(i => i.AssetType) : query.OrderBy(i => i.AssetType),
             "quantity" => sortDesc ? query.OrderByDescending(i => i.CurrentQuantity) : query.OrderBy(i => i.CurrentQuantity),
             "cost" => sortDesc ? query.OrderByDescending(i => i.Cost) : query.OrderBy(i => i.Cost),
             "modified" => sortDesc ? query.OrderByDescending(i => i.LastModifiedDate) : query.OrderBy(i => i.LastModifiedDate),
@@ -77,14 +94,18 @@ public class InventoryController : ControllerBase
         {
             Id = i.Id,
             ItemNumber = i.ItemNumber,
-            HardwareDescription = i.HardwareDescription,
-            HardwareType = i.HardwareType,
+            AssetType = i.AssetType,
+            Description = i.Description,
+            Category = i.Category,
             Cost = i.Cost,
             MinimumThreshold = i.MinimumThreshold,
             ReorderAmount = i.ReorderAmount,
             CurrentQuantity = i.CurrentQuantity,
             LastModifiedBy = i.LastModifiedBy,
-            LastModifiedDate = i.LastModifiedDate
+            LastModifiedDate = i.LastModifiedDate,
+            // Legacy fields for backward compatibility
+            HardwareDescription = i.HardwareDescription ?? i.Description,
+            HardwareType = i.HardwareType ?? i.Category
         }).ToList();
 
         return Ok(dtos);
@@ -104,14 +125,17 @@ public class InventoryController : ControllerBase
         {
             Id = item.Id,
             ItemNumber = item.ItemNumber,
-            HardwareDescription = item.HardwareDescription,
-            HardwareType = item.HardwareType,
+            AssetType = item.AssetType,
+            Description = item.Description,
+            Category = item.Category,
             Cost = item.Cost,
             MinimumThreshold = item.MinimumThreshold,
             ReorderAmount = item.ReorderAmount,
             CurrentQuantity = item.CurrentQuantity,
             LastModifiedBy = item.LastModifiedBy,
-            LastModifiedDate = item.LastModifiedDate
+            LastModifiedDate = item.LastModifiedDate,
+            HardwareDescription = item.HardwareDescription ?? item.Description,
+            HardwareType = item.HardwareType ?? item.Category
         };
 
         return Ok(dto);
@@ -131,13 +155,27 @@ public class InventoryController : ControllerBase
     [HttpGet("types")]
     public async Task<ActionResult<IEnumerable<string>>> GetHardwareTypes()
     {
+        // Return all unique categories (supports both legacy HardwareType and new Category)
         var types = await _context.Inventories
-            .Select(i => i.HardwareType)
+            .Select(i => i.Category ?? i.HardwareType)
+            .Where(t => t != null)
             .Distinct()
             .OrderBy(t => t)
             .ToListAsync();
 
         return Ok(types);
+    }
+
+    [HttpGet("asset-types")]
+    public async Task<ActionResult<IEnumerable<string>>> GetAssetTypes()
+    {
+        var assetTypes = await _context.Inventories
+            .Select(i => i.AssetType)
+            .Distinct()
+            .OrderBy(t => t)
+            .ToListAsync();
+
+        return Ok(assetTypes);
     }
 
     [HttpGet("low-stock-count")]

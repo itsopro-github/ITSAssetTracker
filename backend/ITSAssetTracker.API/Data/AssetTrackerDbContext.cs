@@ -24,10 +24,15 @@ public class AssetTrackerDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.ItemNumber).IsUnique();
             entity.Property(e => e.ItemNumber).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.HardwareDescription).IsRequired().HasMaxLength(500);
-            entity.Property(e => e.HardwareType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.AssetType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Description).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Category).HasMaxLength(100);
             entity.Property(e => e.Cost).HasPrecision(18, 2);
             entity.Property(e => e.LastModifiedBy).IsRequired().HasMaxLength(255);
+
+            // Legacy fields for backward compatibility
+            entity.Property(e => e.HardwareDescription).HasMaxLength(500);
+            entity.Property(e => e.HardwareType).HasMaxLength(100);
         });
 
         // AuditHistory configuration

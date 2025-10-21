@@ -13,6 +13,8 @@ function InventoryList() {
   const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState<FilterOptions>({
     search: '',
+    assetType: '',
+    category: '',
     hardwareType: '',
     needsReorder: undefined,
     sortBy: 'itemnumber',
@@ -59,12 +61,26 @@ function InventoryList() {
       const search = filters.search.toLowerCase();
       filtered = filtered.filter(item =>
         item.itemNumber.toLowerCase().includes(search) ||
-        item.hardwareDescription.toLowerCase().includes(search)
+        (item.description && item.description.toLowerCase().includes(search)) ||
+        (item.hardwareDescription && item.hardwareDescription.toLowerCase().includes(search))
       );
     }
 
+    if (filters.assetType) {
+      filtered = filtered.filter(item => item.assetType === filters.assetType);
+    }
+
+    if (filters.category) {
+      filtered = filtered.filter(item =>
+        item.category === filters.category || item.hardwareType === filters.category
+      );
+    }
+
+    // Legacy filter support
     if (filters.hardwareType) {
-      filtered = filtered.filter(item => item.hardwareType === filters.hardwareType);
+      filtered = filtered.filter(item =>
+        item.hardwareType === filters.hardwareType || item.category === filters.hardwareType
+      );
     }
 
     if (filters.needsReorder !== undefined) {
@@ -82,12 +98,17 @@ function InventoryList() {
           bVal = b.itemNumber.toLowerCase();
           break;
         case 'description':
-          aVal = a.hardwareDescription.toLowerCase();
-          bVal = b.hardwareDescription.toLowerCase();
+          aVal = (a.description || a.hardwareDescription || '').toLowerCase();
+          bVal = (b.description || b.hardwareDescription || '').toLowerCase();
           break;
+        case 'assettype':
+          aVal = a.assetType.toLowerCase();
+          bVal = b.assetType.toLowerCase();
+          break;
+        case 'category':
         case 'type':
-          aVal = a.hardwareType.toLowerCase();
-          bVal = b.hardwareType.toLowerCase();
+          aVal = (a.category || a.hardwareType || '').toLowerCase();
+          bVal = (b.category || b.hardwareType || '').toLowerCase();
           break;
         case 'quantity':
           aVal = a.currentQuantity;
@@ -295,13 +316,26 @@ function InventoryList() {
           </div>
 
           <div className="filter-group">
-            <label>Hardware Type</label>
+            <label>Asset Type</label>
             <select
               className="form-control"
-              value={filters.hardwareType}
-              onChange={e => setFilters(prev => ({ ...prev, hardwareType: e.target.value }))}
+              value={filters.assetType}
+              onChange={e => setFilters(prev => ({ ...prev, assetType: e.target.value }))}
             >
-              <option value="">All Types</option>
+              <option value="">All Assets</option>
+              <option value="Hardware">Hardware</option>
+              <option value="Software">Software</option>
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label>Category</label>
+            <select
+              className="form-control"
+              value={filters.category}
+              onChange={e => setFilters(prev => ({ ...prev, category: e.target.value }))}
+            >
+              <option value="">All Categories</option>
               {hardwareTypes?.map(type => (
                 <option key={type} value={type}>{type}</option>
               ))}
@@ -338,11 +372,14 @@ function InventoryList() {
                 <th onClick={() => handleSort('itemnumber')}>
                   Item Number {filters.sortBy === 'itemnumber' && (filters.sortDesc ? '↓' : '↑')}
                 </th>
+                <th onClick={() => handleSort('assettype')}>
+                  Asset Type {filters.sortBy === 'assettype' && (filters.sortDesc ? '↓' : '↑')}
+                </th>
                 <th onClick={() => handleSort('description')}>
                   Description {filters.sortBy === 'description' && (filters.sortDesc ? '↓' : '↑')}
                 </th>
-                <th onClick={() => handleSort('type')}>
-                  Type {filters.sortBy === 'type' && (filters.sortDesc ? '↓' : '↑')}
+                <th onClick={() => handleSort('category')}>
+                  Category {filters.sortBy === 'category' && (filters.sortDesc ? '↓' : '↑')}
                 </th>
                 <th onClick={() => handleSort('quantity')}>
                   Quantity {filters.sortBy === 'quantity' && (filters.sortDesc ? '↓' : '↑')}
@@ -362,8 +399,17 @@ function InventoryList() {
               {items?.map(item => (
                 <tr key={item.id} style={item.needsReorder ? { backgroundColor: '#ffebee' } : {}}>
                   <td><strong>{item.itemNumber}</strong></td>
-                  <td>{item.hardwareDescription}</td>
-                  <td>{item.hardwareType}</td>
+                  <td>
+                    <span className="badge" style={{
+                      backgroundColor: item.assetType === 'Hardware' ? '#dbeafe' : '#f3e8ff',
+                      color: item.assetType === 'Hardware' ? '#1e40af' : '#6b21a8',
+                      border: item.assetType === 'Hardware' ? '1px solid #93c5fd' : '1px solid #d8b4fe'
+                    }}>
+                      {item.assetType}
+                    </span>
+                  </td>
+                  <td>{item.description || item.hardwareDescription}</td>
+                  <td>{item.category || item.hardwareType}</td>
                   <td>
                     <span className={item.needsReorder ? 'badge badge-danger' : 'badge badge-success'}>
                       {item.currentQuantity}

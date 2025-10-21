@@ -25,23 +25,69 @@ function Dashboard() {
     return allItems?.filter(item => item.needsReorder) || [];
   }, [allItems]);
 
-  const inventoryByType = useMemo(() => {
+  const hardwareByCategory = useMemo(() => {
     if (!allItems) return [];
 
-    const grouped = allItems.reduce((acc, item) => {
-      const existing = acc.find(g => g.type === item.hardwareType);
+    const hardwareItems = allItems.filter(item => item.assetType === 'Hardware');
+    const grouped = hardwareItems.reduce((acc, item) => {
+      const itemType = item.category || item.hardwareType || 'Unknown';
+      const existing = acc.find(g => g.type === itemType);
       if (existing) {
-        existing.count += item.currentQuantity; // Sum quantities instead of counting items
+        existing.count += item.currentQuantity;
         existing.value += item.cost * item.currentQuantity;
       } else {
         acc.push({
-          type: item.hardwareType,
-          count: item.currentQuantity, // Use quantity instead of 1
+          type: itemType,
+          count: item.currentQuantity,
           value: item.cost * item.currentQuantity,
         });
       }
       return acc;
     }, [] as Array<{ type: string; count: number; value: number }>);
+
+    return grouped.sort((a, b) => b.count - a.count);
+  }, [allItems]);
+
+  const softwareByCategory = useMemo(() => {
+    if (!allItems) return [];
+
+    const softwareItems = allItems.filter(item => item.assetType === 'Software');
+    const grouped = softwareItems.reduce((acc, item) => {
+      const itemType = item.category || 'Unknown';
+      const existing = acc.find(g => g.type === itemType);
+      if (existing) {
+        existing.count += item.currentQuantity;
+        existing.value += item.cost * item.currentQuantity;
+      } else {
+        acc.push({
+          type: itemType,
+          count: item.currentQuantity,
+          value: item.cost * item.currentQuantity,
+        });
+      }
+      return acc;
+    }, [] as Array<{ type: string; count: number; value: number }>);
+
+    return grouped.sort((a, b) => b.count - a.count);
+  }, [allItems]);
+
+  const inventoryByAssetType = useMemo(() => {
+    if (!allItems) return [];
+
+    const grouped = allItems.reduce((acc, item) => {
+      const existing = acc.find(g => g.assetType === item.assetType);
+      if (existing) {
+        existing.count += item.currentQuantity;
+        existing.value += item.cost * item.currentQuantity;
+      } else {
+        acc.push({
+          assetType: item.assetType,
+          count: item.currentQuantity,
+          value: item.cost * item.currentQuantity,
+        });
+      }
+      return acc;
+    }, [] as Array<{ assetType: string; count: number; value: number }>);
 
     return grouped.sort((a, b) => b.count - a.count);
   }, [allItems]);
@@ -86,7 +132,7 @@ function Dashboard() {
     <div>
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#111827', marginBottom: '0.5rem' }}>Asset Management Dashboard</h1>
-        <p style={{ color: '#6b7280', fontSize: '1rem' }}>Track and manage your hardware inventory in real-time</p>
+        <p style={{ color: '#6b7280', fontSize: '1rem' }}>Track and manage your hardware and software assets in real-time</p>
       </div>
 
       {/* Stats Overview */}
@@ -171,11 +217,33 @@ function Dashboard() {
       {/* Charts */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
         <div className="card">
-          <h2>Inventory Distribution</h2>
+          <h2>Hardware vs Software Distribution</h2>
           <ResponsiveContainer width="100%" height={350}>
             <PieChart>
               <Pie
-                data={inventoryByType}
+                data={inventoryByAssetType}
+                dataKey="count"
+                nameKey="assetType"
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                label={({ assetType, count }) => `${assetType}: ${count} units`}
+              >
+                {inventoryByAssetType.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.assetType === 'Hardware' ? '#3b82f6' : '#8b5cf6'} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="card">
+          <h2>Hardware by Category</h2>
+          <ResponsiveContainer width="100%" height={350}>
+            <PieChart>
+              <Pie
+                data={hardwareByCategory}
                 dataKey="count"
                 nameKey="type"
                 cx="50%"
@@ -183,7 +251,7 @@ function Dashboard() {
                 outerRadius={100}
                 label={({ type, count }) => `${type}: ${count} units`}
               >
-                {inventoryByType.map((_, index) => (
+                {hardwareByCategory.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -193,9 +261,31 @@ function Dashboard() {
         </div>
 
         <div className="card">
-          <h2>Inventory Count by Category</h2>
+          <h2>Software by Category</h2>
           <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={inventoryByType}>
+            <PieChart>
+              <Pie
+                data={softwareByCategory}
+                dataKey="count"
+                nameKey="type"
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                label={({ type, count }) => `${type}: ${count} units`}
+              >
+                {softwareByCategory.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="card">
+          <h2>Hardware Count by Category</h2>
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart data={hardwareByCategory}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
               <XAxis dataKey="type" tick={{ fontSize: 12 }} />
               <YAxis />
@@ -203,6 +293,21 @@ function Dashboard() {
                 contentStyle={{ background: 'rgba(255, 255, 255, 0.95)', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}
               />
               <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="card">
+          <h2>Software Count by Category</h2>
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart data={softwareByCategory}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+              <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+              <YAxis />
+              <Tooltip
+                contentStyle={{ background: 'rgba(255, 255, 255, 0.95)', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}
+              />
+              <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -230,9 +335,25 @@ function Dashboard() {
         </div>
 
         <div className="card">
-          <h2>Inventory Value by Type</h2>
+          <h2>Hardware Value by Category</h2>
           <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={inventoryByType}>
+            <BarChart data={hardwareByCategory}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+              <XAxis dataKey="type" tick={{ fontSize: 12 }} />
+              <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
+              <Tooltip
+                contentStyle={{ background: 'rgba(255, 255, 255, 0.95)', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}
+                formatter={(value: number) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+              />
+              <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Total Value" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="card">
+          <h2>Software Value by Category</h2>
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart data={softwareByCategory}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
               <XAxis dataKey="type" tick={{ fontSize: 12 }} />
               <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
@@ -255,8 +376,9 @@ function Dashboard() {
               <thead>
                 <tr>
                   <th>Item Number</th>
+                  <th>Asset Type</th>
                   <th>Description</th>
-                  <th>Type</th>
+                  <th>Category</th>
                   <th>Current Qty</th>
                   <th>Threshold</th>
                   <th>Reorder Amount</th>
@@ -266,8 +388,17 @@ function Dashboard() {
                 {lowStockItems.map(item => (
                   <tr key={item.id} onClick={() => navigate('/inventory')} style={{ cursor: 'pointer' }}>
                     <td>{item.itemNumber}</td>
-                    <td>{item.hardwareDescription}</td>
-                    <td>{item.hardwareType}</td>
+                    <td>
+                      <span className="badge" style={{
+                        backgroundColor: item.assetType === 'Hardware' ? '#dbeafe' : '#f3e8ff',
+                        color: item.assetType === 'Hardware' ? '#1e40af' : '#6b21a8',
+                        border: item.assetType === 'Hardware' ? '1px solid #93c5fd' : '1px solid #d8b4fe'
+                      }}>
+                        {item.assetType}
+                      </span>
+                    </td>
+                    <td>{item.description || item.hardwareDescription}</td>
+                    <td>{item.category || item.hardwareType}</td>
                     <td><span className="badge badge-danger">{item.currentQuantity}</span></td>
                     <td>{item.minimumThreshold}</td>
                     <td>{item.reorderAmount}</td>

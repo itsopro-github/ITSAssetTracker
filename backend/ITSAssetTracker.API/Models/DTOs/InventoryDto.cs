@@ -4,8 +4,9 @@ public class InventoryDto
 {
     public int Id { get; set; }
     public required string ItemNumber { get; set; }
-    public required string HardwareDescription { get; set; }
-    public required string HardwareType { get; set; }
+    public required string AssetType { get; set; } // "Hardware" or "Software"
+    public required string Description { get; set; }
+    public string? Category { get; set; }
     public decimal Cost { get; set; }
     public int MinimumThreshold { get; set; }
     public int ReorderAmount { get; set; }
@@ -13,6 +14,10 @@ public class InventoryDto
     public required string LastModifiedBy { get; set; }
     public DateTime LastModifiedDate { get; set; }
     public bool NeedsReorder => CurrentQuantity <= MinimumThreshold;
+
+    // Legacy properties for backward compatibility
+    public string? HardwareDescription { get; set; }
+    public string? HardwareType { get; set; }
 }
 
 public class UpdateInventoryDto
@@ -34,8 +39,14 @@ public class CsvUploadResultDto
 public class InventoryCsvRow
 {
     public required string ItemNumber { get; set; }
-    public required string HardwareDescription { get; set; }
-    public required string HardwareType { get; set; }
+    public string? AssetType { get; set; } // "Hardware" or "Software"
+    public string? Description { get; set; }
+    public string? Category { get; set; }
+
+    // Legacy fields for backward compatibility
+    public string? HardwareDescription { get; set; }
+    public string? HardwareType { get; set; }
+
     public decimal Cost { get; set; }
     public int MinimumThreshold { get; set; }
     public int ReorderAmount { get; set; }
