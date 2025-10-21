@@ -31,12 +31,12 @@ function Dashboard() {
     const grouped = allItems.reduce((acc, item) => {
       const existing = acc.find(g => g.type === item.hardwareType);
       if (existing) {
-        existing.count += 1;
+        existing.count += item.currentQuantity; // Sum quantities instead of counting items
         existing.value += item.cost * item.currentQuantity;
       } else {
         acc.push({
           type: item.hardwareType,
-          count: 1,
+          count: item.currentQuantity, // Use quantity instead of 1
           value: item.cost * item.currentQuantity,
         });
       }
@@ -181,7 +181,7 @@ function Dashboard() {
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
-                label={({ type, count }) => `${type}: ${count}`}
+                label={({ type, count }) => `${type}: ${count} units`}
               >
                 {inventoryByType.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
