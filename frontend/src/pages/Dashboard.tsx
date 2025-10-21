@@ -110,8 +110,8 @@ function Dashboard() {
         </div>
         <div
           className="stat-card danger"
-          onClick={() => navigate('/inventory')}
-          onKeyDown={(e) => e.key === 'Enter' && navigate('/inventory')}
+          onClick={() => navigate('/inventory?filter=lowstock')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/inventory?filter=lowstock')}
           role="button"
           tabIndex={0}
           aria-label="View low stock items"

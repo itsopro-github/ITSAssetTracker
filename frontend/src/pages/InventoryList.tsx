@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { inventoryApi, userApi } from '../services/api';
 import { mockInventoryItems, mockUser } from '../services/mockData';
 import type { FilterOptions, UpdateInventoryDto } from '../types';
@@ -9,6 +10,7 @@ const USE_MOCK_DATA = true;
 
 function InventoryList() {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState<FilterOptions>({
     search: '',
     hardwareType: '',
@@ -16,6 +18,14 @@ function InventoryList() {
     sortBy: 'itemnumber',
     sortDesc: false,
   });
+
+  // Handle URL query parameters for filtered views
+  useEffect(() => {
+    const filterParam = searchParams.get('filter');
+    if (filterParam === 'lowstock') {
+      setFilters(prev => ({ ...prev, needsReorder: true }));
+    }
+  }, [searchParams]);
 
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -33,31 +43,76 @@ function InventoryList() {
     queryFn: USE_MOCK_DATA ? async () => mockUser : userApi.getCurrentUser,
   });
 
-  const { data: items, isLoading } = useQuery({
-    queryKey: ['inventory', filters],
-    queryFn: USE_MOCK_DATA ? async () => {
-      // Apply client-side filtering for mock data
-      let filtered = [...mockInventoryItems];
-
-      if (filters.search) {
-        const search = filters.search.toLowerCase();
-        filtered = filtered.filter(item =>
-          item.itemNumber.toLowerCase().includes(search) ||
-          item.hardwareDescription.toLowerCase().includes(search)
-        );
-      }
-
-      if (filters.hardwareType) {
-        filtered = filtered.filter(item => item.hardwareType === filters.hardwareType);
-      }
-
-      if (filters.needsReorder !== undefined) {
-        filtered = filtered.filter(item => item.needsReorder === filters.needsReorder);
-      }
-
-      return filtered;
-    } : () => inventoryApi.getAll(filters),
+  const { data: rawItems, isLoading } = useQuery({
+    queryKey: ['inventory'],
+    queryFn: USE_MOCK_DATA ? async () => mockInventoryItems : () => inventoryApi.getAll({}),
   });
+
+  // Apply filtering and sorting client-side
+  const items = useMemo(() => {
+    if (!rawItems) return [];
+
+    let filtered = [...rawItems];
+
+    // Apply filters
+    if (filters.search) {
+      const search = filters.search.toLowerCase();
+      filtered = filtered.filter(item =>
+        item.itemNumber.toLowerCase().includes(search) ||
+        item.hardwareDescription.toLowerCase().includes(search)
+      );
+    }
+
+    if (filters.hardwareType) {
+      filtered = filtered.filter(item => item.hardwareType === filters.hardwareType);
+    }
+
+    if (filters.needsReorder !== undefined) {
+      filtered = filtered.filter(item => item.needsReorder === filters.needsReorder);
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+
+      switch (filters.sortBy) {
+        case 'itemnumber':
+          aVal = a.itemNumber.toLowerCase();
+          bVal = b.itemNumber.toLowerCase();
+          break;
+        case 'description':
+          aVal = a.hardwareDescription.toLowerCase();
+          bVal = b.hardwareDescription.toLowerCase();
+          break;
+        case 'type':
+          aVal = a.hardwareType.toLowerCase();
+          bVal = b.hardwareType.toLowerCase();
+          break;
+        case 'quantity':
+          aVal = a.currentQuantity;
+          bVal = b.currentQuantity;
+          break;
+        case 'cost':
+          aVal = a.cost;
+          bVal = b.cost;
+          break;
+        case 'modified':
+          aVal = new Date(a.lastModifiedDate).getTime();
+          bVal = new Date(b.lastModifiedDate).getTime();
+          break;
+        default:
+          aVal = a.itemNumber.toLowerCase();
+          bVal = b.itemNumber.toLowerCase();
+      }
+
+      if (aVal < bVal) return filters.sortDesc ? 1 : -1;
+      if (aVal > bVal) return filters.sortDesc ? -1 : 1;
+      return 0;
+    });
+
+    return filtered;
+  }, [rawItems, filters]);
 
   const { data: hardwareTypes } = useQuery({
     queryKey: ['hardwareTypes'],
