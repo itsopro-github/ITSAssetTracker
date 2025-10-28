@@ -294,11 +294,347 @@ function InventoryList() {
 
   const canEdit = user?.roles.isServiceDesk;
 
+  // Group items by category for tile view
+  const categoryTiles = useMemo(() => {
+    if (!items) return [];
+
+    const grouped = items.reduce((acc, item) => {
+      const category = item.category || item.hardwareType || 'Unknown';
+      const assetType = item.assetType;
+      const key = `${assetType}-${category}`;
+
+      if (!acc[key]) {
+        acc[key] = {
+          category,
+          assetType,
+          items: [],
+          totalQuantity: 0,
+          uniqueItems: 0,
+          needsReorder: false,
+          totalValue: 0,
+          totalThreshold: 0,
+          totalTarget: 0,
+        };
+      }
+
+      acc[key].items.push(item);
+      acc[key].totalQuantity += item.currentQuantity;
+      acc[key].uniqueItems += 1;
+      acc[key].totalValue += item.cost * item.currentQuantity;
+      acc[key].totalThreshold += item.minimumThreshold;
+      acc[key].totalTarget += item.minimumThreshold + item.reorderAmount;
+      if (item.needsReorder) {
+        acc[key].needsReorder = true;
+      }
+
+      return acc;
+    }, {} as Record<string, {
+      category: string;
+      assetType: string;
+      items: typeof items;
+      totalQuantity: number;
+      uniqueItems: number;
+      needsReorder: boolean;
+      totalValue: number;
+      totalThreshold: number;
+      totalTarget: number;
+    }>);
+
+    return Object.values(grouped).sort((a, b) => {
+      // Sort by asset type first, then by total quantity
+      if (a.assetType !== b.assetType) {
+        return a.assetType.localeCompare(b.assetType);
+      }
+      return b.totalQuantity - a.totalQuantity;
+    });
+  }, [items]);
+
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [tileFilter, setTileFilter] = useState<'all' | 'Hardware' | 'Software'>('all');
+
+  const toggleCategory = (category: string, assetType: string) => {
+    const key = `${assetType}-${category}`;
+    setExpandedCategory(expandedCategory === key ? null : key);
+  };
+
+  const filteredTiles = useMemo(() => {
+    if (tileFilter === 'all') return categoryTiles;
+    return categoryTiles.filter(tile => tile.assetType === tileFilter);
+  }, [categoryTiles, tileFilter]);
+
+  const handleTileAssign = (tile: typeof categoryTiles[0], e: React.MouseEvent) => {
+    e.stopPropagation();
+    // If only one item in the category, open assign modal directly
+    if (tile.items.length === 1) {
+      openUpdateModal(tile.items[0].itemNumber);
+    } else {
+      // If multiple items, expand the category to show all items
+      toggleCategory(tile.category, tile.assetType);
+    }
+  };
+
   return (
     <div>
       <div className="card-header">
         <h1>Inventory Management</h1>
       </div>
+
+      {/* Category Tiles Overview */}
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2>Inventory by Category</h2>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={() => setTileFilter('all')}
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: '0.375rem',
+                border: tileFilter === 'all' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                backgroundColor: tileFilter === 'all' ? '#dbeafe' : '#ffffff',
+                color: tileFilter === 'all' ? '#1e40af' : '#6b7280',
+                fontWeight: tileFilter === 'all' ? '600' : '400',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontSize: '0.875rem',
+              }}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setTileFilter('Hardware')}
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: '0.375rem',
+                border: tileFilter === 'Hardware' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                backgroundColor: tileFilter === 'Hardware' ? '#dbeafe' : '#ffffff',
+                color: tileFilter === 'Hardware' ? '#1e40af' : '#6b7280',
+                fontWeight: tileFilter === 'Hardware' ? '600' : '400',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontSize: '0.875rem',
+              }}
+            >
+              Hardware
+            </button>
+            <button
+              onClick={() => setTileFilter('Software')}
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: '0.375rem',
+                border: tileFilter === 'Software' ? '2px solid #8b5cf6' : '1px solid #e5e7eb',
+                backgroundColor: tileFilter === 'Software' ? '#f3e8ff' : '#ffffff',
+                color: tileFilter === 'Software' ? '#6b21a8' : '#6b7280',
+                fontWeight: tileFilter === 'Software' ? '600' : '400',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontSize: '0.875rem',
+              }}
+            >
+              Software
+            </button>
+          </div>
+        </div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: '1rem',
+        }}>
+          {filteredTiles.map((tile) => {
+            const key = `${tile.assetType}-${tile.category}`;
+            const isExpanded = expandedCategory === key;
+
+            return (
+              <div
+                key={key}
+                onClick={() => toggleCategory(tile.category, tile.assetType)}
+                onKeyDown={(e) => e.key === 'Enter' && toggleCategory(tile.category, tile.assetType)}
+                role="button"
+                tabIndex={0}
+                aria-label={`View ${tile.category} inventory`}
+                style={{
+                  border: tile.needsReorder ? '2px solid #ef4444' : '1px solid #e5e7eb',
+                  borderRadius: '0.75rem',
+                  padding: '1.25rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  backgroundColor: tile.needsReorder ? '#fef2f2' : '#ffffff',
+                  boxShadow: isExpanded ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isExpanded) {
+                    e.currentTarget.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
+                  }
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827', marginBottom: '0.25rem' }}>
+                      {tile.category}
+                    </h3>
+                    <span className="badge" style={{
+                      backgroundColor: tile.assetType === 'Hardware' ? '#dbeafe' : '#f3e8ff',
+                      color: tile.assetType === 'Hardware' ? '#1e40af' : '#6b21a8',
+                      border: tile.assetType === 'Hardware' ? '1px solid #93c5fd' : '1px solid #d8b4fe',
+                      fontSize: '0.75rem',
+                    }}>
+                      {tile.assetType}
+                    </span>
+                  </div>
+                  {tile.needsReorder && (
+                    <span style={{
+                      backgroundColor: '#fee2e2',
+                      color: '#991b1b',
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.75rem',
+                      fontWeight: '600',
+                      border: '1px solid #fca5a5',
+                    }}>
+                      Reorder
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ marginTop: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>Total Quantity:</span>
+                    <span style={{ fontWeight: '700', fontSize: '1.25rem', color: '#111827' }}>
+                      {tile.totalQuantity}
+                    </span>
+                  </div>
+
+                  {/* Stock Level Progress Bar */}
+                  <div>
+                    <div style={{ marginBottom: '0.375rem' }}>
+                      <span style={{ color: '#6b7280', fontSize: '0.75rem', fontWeight: '500' }}>Stock Level</span>
+                    </div>
+                    <div style={{
+                      width: '100%',
+                      height: '8px',
+                      backgroundColor: '#e5e7eb',
+                      borderRadius: '9999px',
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        width: `${Math.min((tile.totalQuantity / tile.totalTarget) * 100, 100)}%`,
+                        height: '100%',
+                        backgroundColor: tile.needsReorder ? '#ef4444' : tile.totalQuantity < tile.totalThreshold * 1.5 ? '#f59e0b' : '#10b981',
+                        borderRadius: '9999px',
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '0.25rem' }}>
+                      <span style={{ fontSize: '0.625rem', color: '#9ca3af' }}>
+                        Threshold: {tile.totalThreshold}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '1rem' }}>
+                  {canEdit && (
+                    <button
+                      className="btn btn-primary"
+                      onClick={(e) => handleTileAssign(tile, e)}
+                      style={{
+                        fontSize: '0.875rem',
+                        padding: '0.625rem 1rem',
+                        width: '100%',
+                      }}
+                    >
+                      {tile.items.length === 1 ? 'Assign' : `Assign (${tile.items.length} items)`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {filteredTiles.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+            No {tileFilter === 'all' ? '' : tileFilter.toLowerCase()} items found
+          </div>
+        )}
+      </div>
+
+      {/* Expanded Category Details */}
+      {expandedCategory && (() => {
+        const tile = categoryTiles.find(t => `${t.assetType}-${t.category}` === expandedCategory);
+        if (!tile) return null;
+
+        return (
+          <div className="card">
+            <div className="card-header">
+              <h2>{tile.category} - Detailed View</h2>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setExpandedCategory(null)}
+                style={{ marginLeft: 'auto' }}
+              >
+                Close
+              </button>
+            </div>
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Item Number</th>
+                    <th>Description</th>
+                    <th>Quantity</th>
+                    <th>Cost</th>
+                    <th>Threshold</th>
+                    <th>Reorder Amt</th>
+                    <th>Last Modified</th>
+                    {canEdit && <th>Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tile.items.map(item => (
+                    <tr key={item.id} style={item.needsReorder ? { backgroundColor: '#ffebee' } : {}}>
+                      <td><strong>{item.itemNumber}</strong></td>
+                      <td>{item.description || item.hardwareDescription}</td>
+                      <td>
+                        <span className={item.needsReorder ? 'badge badge-danger' : 'badge badge-success'}>
+                          {item.currentQuantity}
+                        </span>
+                      </td>
+                      <td>${item.cost.toFixed(2)}</td>
+                      <td>{item.minimumThreshold}</td>
+                      <td>{item.reorderAmount}</td>
+                      <td>
+                        <small>{new Date(item.lastModifiedDate).toLocaleDateString()}</small>
+                        <br />
+                        <small>{item.lastModifiedBy}</small>
+                      </td>
+                      {canEdit && (
+                        <td>
+                          <button
+                            className="btn btn-primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openUpdateModal(item.itemNumber);
+                            }}
+                            style={{ fontSize: '0.8125rem', padding: '0.5rem 1rem' }}
+                          >
+                            Assign
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Filters */}
       <div className="card">
