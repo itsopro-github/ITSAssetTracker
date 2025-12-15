@@ -1,0 +1,52 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Inventory {
+  id                  Int            @id @default(autoincrement())
+  itemNumber          String         @unique @map("ItemNumber")
+  assetType           String         @map("AssetType")
+  description         String         @map("Description")
+  category            String?        @map("Category")
+  cost                Float          @map("Cost")
+  minimumThreshold    Int            @map("MinimumThreshold")
+  reorderAmount       Int            @map("ReorderAmount")
+  currentQuantity     Int            @map("CurrentQuantity")
+  lastModifiedBy      String         @map("LastModifiedBy")
+  lastModifiedDate    DateTime       @default(now()) @map("LastModifiedDate")
+  hardwareDescription String?        @map("HardwareDescription")
+  hardwareType        String?        @map("HardwareType")
+  auditHistories      AuditHistory[]
+
+  @@map("Inventories")
+}
+
+model AuditHistory {
+  id                 Int        @id @default(autoincrement())
+  itemId             Int?       @map("ItemId")
+  itemNumber         String?    @map("ItemNumber")
+  itemDescription    String?    @map("ItemDescription")
+  previousQuantity   Int        @map("PreviousQuantity")
+  newQuantity        Int        @map("NewQuantity")
+  changedBy          String     @map("ChangedBy")
+  changeDate         DateTime   @default(now()) @map("ChangeDate")
+  serviceNowTicketUrl String?   @map("ServiceNowTicketUrl")
+  item               Inventory? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@map("AuditHistories")
+}
+
+model NotificationConfig {
+  id                        Int     @id @default(autoincrement())
+  adGroupName               String  @map("ADGroupName")
+  additionalEmailRecipients String? @map("AdditionalEmailRecipients")
+
+  @@map("NotificationConfigs")
+}

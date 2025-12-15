@@ -6,7 +6,7 @@ import { mockInventoryItems, mockUser } from '../services/mockData';
 import type { FilterOptions, UpdateInventoryDto } from '../types';
 
 // Use mock data for demo purposes
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 function InventoryList() {
   const queryClient = useQueryClient();
@@ -31,6 +31,8 @@ function InventoryList() {
 
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ id: number; itemNumber: string } | null>(null);
   const [assignments, setAssignments] = useState<Array<{
     id: string;
     quantity: number;
@@ -39,6 +41,9 @@ function InventoryList() {
   }>>([{ id: '1', quantity: 1, assignedTo: '', ticketUrl: '' }]);
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [tileFilter, setTileFilter] = useState<'all' | 'Hardware' | 'Software'>('all');
+
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -152,7 +157,23 @@ function InventoryList() {
       alert('Inventory updated successfully');
     },
     onError: (error: any) => {
-      alert(`Error updating inventory: ${error.response?.data || error.message}`);
+      console.error('Update error:', error);
+      const errorMessage = error.response?.data?.error || error.response?.data?.details || error.message || 'Unknown error occurred';
+      alert(`Error updating inventory: ${errorMessage}`);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => inventoryApi.deleteItem(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      setShowDeleteModal(false);
+      setItemToDelete(null);
+      alert('Item deleted successfully');
+    },
+    onError: (error: any) => {
+      alert(`Error deleting item: ${error.response?.data?.error || error.message}`);
     },
   });
 
@@ -202,19 +223,14 @@ function InventoryList() {
     setActiveSearchIndex(index);
 
     if (query.length >= 2) {
-      // Mock AD search - in production, this would call userApi.searchUsers
-      const mockUsers = [
-        'john.doe@company.com',
-        'jane.smith@company.com',
-        'mike.johnson@company.com',
-        'sarah.williams@company.com',
-        'david.brown@company.com',
-        'emily.davis@company.com',
-        'chris.martinez@company.com',
-        'amanda.taylor@company.com',
-      ];
-      const filtered = mockUsers.filter(u => u.toLowerCase().includes(query.toLowerCase()));
-      setSearchResults(filtered);
+      try {
+        // Search Active Directory by name/username
+        const users = await userApi.searchUsers(query);
+        setSearchResults(users);
+      } catch (error) {
+        console.error('Error searching users:', error);
+        setSearchResults([]);
+      }
     } else {
       setSearchResults([]);
     }
@@ -275,26 +291,27 @@ function InventoryList() {
     setActiveSearchIndex(null);
   };
 
-  if (isLoading) {
-    return (
-      <div className="loading">
-        <div className="spinner"></div>
-        <p style={{ marginTop: '1rem', color: '#6b7280' }}>Loading inventory...</p>
-      </div>
-    );
-  }
+  const openDeleteModal = (id: number, itemNumber: string) => {
+    setItemToDelete({ id, itemNumber });
+    setShowDeleteModal(true);
+  };
 
-  if (!items) {
-    return (
-      <div className="alert alert-error">
-        <strong>Error:</strong> Failed to load inventory data. Please refresh the page.
-      </div>
-    );
-  }
+  const handleDelete = () => {
+    if (itemToDelete) {
+      deleteMutation.mutate(itemToDelete.id);
+    }
+  };
 
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setItemToDelete(null);
+  };
+
+  // Define permissions before early returns to avoid hook ordering issues
   const canEdit = user?.roles.isServiceDesk;
+  const isAdmin = user?.roles.isAdmin;
 
-  // Group items by category for tile view
+  // Group items by category for tile view - MUST be before early returns
   const categoryTiles = useMemo(() => {
     if (!items) return [];
 
@@ -349,18 +366,33 @@ function InventoryList() {
     });
   }, [items]);
 
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
-  const [tileFilter, setTileFilter] = useState<'all' | 'Hardware' | 'Software'>('all');
+  const filteredTiles = useMemo(() => {
+    if (tileFilter === 'all') return categoryTiles;
+    return categoryTiles.filter(tile => tile.assetType === tileFilter);
+  }, [categoryTiles, tileFilter]);
+
+  // Early returns AFTER all hooks are defined
+  if (isLoading) {
+    return (
+      <div className="loading">
+        <div className="spinner"></div>
+        <p style={{ marginTop: '1rem', color: '#6b7280' }}>Loading inventory...</p>
+      </div>
+    );
+  }
+
+  if (!items) {
+    return (
+      <div className="alert alert-error">
+        <strong>Error:</strong> Failed to load inventory data. Please refresh the page.
+      </div>
+    );
+  }
 
   const toggleCategory = (category: string, assetType: string) => {
     const key = `${assetType}-${category}`;
     setExpandedCategory(expandedCategory === key ? null : key);
   };
-
-  const filteredTiles = useMemo(() => {
-    if (tileFilter === 'all') return categoryTiles;
-    return categoryTiles.filter(tile => tile.assetType === tileFilter);
-  }, [categoryTiles, tileFilter]);
 
   const handleTileAssign = (tile: typeof categoryTiles[0], e: React.MouseEvent) => {
     e.stopPropagation();
@@ -371,6 +403,121 @@ function InventoryList() {
       // If multiple items, expand the category to show all items
       toggleCategory(tile.category, tile.assetType);
     }
+  };
+
+  const renderExpandedCategory = () => {
+    const tile = categoryTiles.find(t => `${t.assetType}-${t.category}` === expandedCategory);
+    if (!tile) return null;
+
+    return (
+      <div className="card">
+        <div className="card-header">
+          <h2>{tile.category} - Detailed View</h2>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setExpandedCategory(null)}
+            style={{ marginLeft: 'auto' }}
+          >
+            Close
+          </button>
+        </div>
+        <div className="table-responsive">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Item Number</th>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Cost</th>
+                <th>Threshold</th>
+                <th>Reorder Amt</th>
+                <th>Last Modified</th>
+                {canEdit && <th>Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {tile.items.map(item => (
+                <tr key={item.id} style={item.needsReorder ? { backgroundColor: '#ffebee' } : {}}>
+                  <td><strong>{item.itemNumber}</strong></td>
+                  <td>{item.description || item.hardwareDescription}</td>
+                  <td>
+                    <span className={item.needsReorder ? 'badge badge-danger' : 'badge badge-success'}>
+                      {item.currentQuantity}
+                    </span>
+                  </td>
+                  <td>${item.cost.toFixed(2)}</td>
+                  <td>{item.minimumThreshold}</td>
+                  <td>{item.reorderAmount}</td>
+                  <td>
+                    <small>{new Date(item.lastModifiedDate).toLocaleDateString()}</small>
+                    <br />
+                    <small>{item.lastModifiedBy}</small>
+                  </td>
+                  {canEdit && (
+                    <td>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          className="btn btn-primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openUpdateModal(item.itemNumber);
+                          }}
+                          disabled={item.currentQuantity === 0}
+                          style={{
+                            fontSize: '0.8125rem',
+                            padding: '0.5rem 1rem',
+                            opacity: item.currentQuantity === 0 ? 0.5 : 1,
+                            cursor: item.currentQuantity === 0 ? 'not-allowed' : 'pointer',
+                          }}
+                          title={item.currentQuantity === 0 ? 'Out of stock' : ''}
+                        >
+                          Assign
+                        </button>
+                        {isAdmin && (
+                          <button
+                            className="btn btn-danger"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDeleteModal(item.id, item.itemNumber);
+                            }}
+                            style={{
+                              fontSize: '0.8125rem',
+                              padding: '0.5rem 0.75rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title="Delete item"
+                            aria-label="Delete item"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                              <line x1="10" y1="11" x2="10" y2="17"></line>
+                              <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -542,11 +689,15 @@ function InventoryList() {
                     <button
                       className="btn btn-primary"
                       onClick={(e) => handleTileAssign(tile, e)}
+                      disabled={tile.totalQuantity === 0}
                       style={{
                         fontSize: '0.875rem',
                         padding: '0.625rem 1rem',
                         width: '100%',
+                        opacity: tile.totalQuantity === 0 ? 0.5 : 1,
+                        cursor: tile.totalQuantity === 0 ? 'not-allowed' : 'pointer',
                       }}
+                      title={tile.totalQuantity === 0 ? 'Out of stock' : ''}
                     >
                       {tile.items.length === 1 ? 'Assign' : `Assign (${tile.items.length} items)`}
                     </button>
@@ -565,76 +716,7 @@ function InventoryList() {
       </div>
 
       {/* Expanded Category Details */}
-      {expandedCategory && (() => {
-        const tile = categoryTiles.find(t => `${t.assetType}-${t.category}` === expandedCategory);
-        if (!tile) return null;
-
-        return (
-          <div className="card">
-            <div className="card-header">
-              <h2>{tile.category} - Detailed View</h2>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setExpandedCategory(null)}
-                style={{ marginLeft: 'auto' }}
-              >
-                Close
-              </button>
-            </div>
-            <div className="table-responsive">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Item Number</th>
-                    <th>Description</th>
-                    <th>Quantity</th>
-                    <th>Cost</th>
-                    <th>Threshold</th>
-                    <th>Reorder Amt</th>
-                    <th>Last Modified</th>
-                    {canEdit && <th>Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {tile.items.map(item => (
-                    <tr key={item.id} style={item.needsReorder ? { backgroundColor: '#ffebee' } : {}}>
-                      <td><strong>{item.itemNumber}</strong></td>
-                      <td>{item.description || item.hardwareDescription}</td>
-                      <td>
-                        <span className={item.needsReorder ? 'badge badge-danger' : 'badge badge-success'}>
-                          {item.currentQuantity}
-                        </span>
-                      </td>
-                      <td>${item.cost.toFixed(2)}</td>
-                      <td>{item.minimumThreshold}</td>
-                      <td>{item.reorderAmount}</td>
-                      <td>
-                        <small>{new Date(item.lastModifiedDate).toLocaleDateString()}</small>
-                        <br />
-                        <small>{item.lastModifiedBy}</small>
-                      </td>
-                      {canEdit && (
-                        <td>
-                          <button
-                            className="btn btn-primary"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openUpdateModal(item.itemNumber);
-                            }}
-                            style={{ fontSize: '0.8125rem', padding: '0.5rem 1rem' }}
-                          >
-                            Assign
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      })()}
+      {expandedCategory && renderExpandedCategory()}
 
       {/* Filters */}
       <div className="card">
@@ -761,13 +843,54 @@ function InventoryList() {
                   </td>
                   {canEdit && (
                     <td>
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => openUpdateModal(item.itemNumber)}
-                        style={{ fontSize: '0.8125rem', padding: '0.5rem 1rem' }}
-                      >
-                        Assign
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => openUpdateModal(item.itemNumber)}
+                          disabled={item.currentQuantity === 0}
+                          style={{
+                            fontSize: '0.8125rem',
+                            padding: '0.5rem 1rem',
+                            opacity: item.currentQuantity === 0 ? 0.5 : 1,
+                            cursor: item.currentQuantity === 0 ? 'not-allowed' : 'pointer',
+                          }}
+                          title={item.currentQuantity === 0 ? 'Out of stock' : ''}
+                        >
+                          Assign
+                        </button>
+                        {isAdmin && (
+                          <button
+                            className="btn btn-danger"
+                            onClick={() => openDeleteModal(item.id, item.itemNumber)}
+                            style={{
+                              fontSize: '0.8125rem',
+                              padding: '0.5rem 0.75rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title="Delete item"
+                            aria-label="Delete item"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                              <line x1="10" y1="11" x2="10" y2="17"></line>
+                              <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -844,19 +967,19 @@ function InventoryList() {
                   </div>
 
                   <div className="form-group" style={{ position: 'relative' }}>
-                    <label>Assign To (User Email) <span style={{ color: '#dc2626' }}>*</span></label>
+                    <label>Assign To (Username) <span style={{ color: '#dc2626' }}>*</span></label>
                     <input
-                      type="email"
+                      type="text"
                       className="form-control"
                       value={assignment.assignedTo}
                       onChange={e => {
                         updateAssignment(assignment.id, 'assignedTo', e.target.value.trim());
                         handleUserSearch(e.target.value.trim(), index);
                       }}
-                      placeholder="Search user by email..."
+                      placeholder="Search user by name..."
                       required
                       aria-required="true"
-                      aria-label="User email address"
+                      aria-label="Username"
                     />
                     {searchResults.length > 0 && activeSearchIndex === index && (
                       <div style={{
@@ -954,6 +1077,56 @@ function InventoryList() {
                 disabled={updateMutation.isPending || assignments.some(a => !a.assignedTo)}
               >
                 {updateMutation.isPending ? 'Assigning...' : 'Assign Assets'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && itemToDelete && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div className="card" style={{ width: '500px', maxWidth: '90%' }}>
+            <h2 style={{ color: '#dc2626' }}>Delete Inventory Item</h2>
+            <p style={{ marginBottom: '1.5rem', color: '#374151' }}>
+              Are you sure you want to delete <strong>{itemToDelete.itemNumber}</strong>?
+            </p>
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fca5a5',
+              borderRadius: '0.5rem',
+              marginBottom: '1.5rem',
+            }}>
+              <p style={{ color: '#991b1b', fontSize: '0.875rem', margin: 0 }}>
+                <strong>Warning:</strong> This action cannot be undone. All audit history for this item will also be deleted.
+              </p>
+            </div>
+            <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={closeDeleteModal}
+                disabled={deleteMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete Item'}
               </button>
             </div>
           </div>

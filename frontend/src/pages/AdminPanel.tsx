@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryApi, userApi } from '../services/api';
 import { mockUser, mockInventoryItems } from '../services/mockData';
 import type { InventoryItem } from '../types';
 
 // Use mock data for demo purposes
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 function AdminPanel() {
-  const [activeTab, setActiveTab] = useState<'inventory' | 'upload' | 'config'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'upload'>('inventory');
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -29,7 +29,7 @@ function AdminPanel() {
     <div>
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#111827', marginBottom: '0.5rem' }}>Admin Panel</h1>
-        <p style={{ color: '#6b7280', fontSize: '1rem' }}>Manage inventory, upload data, and configure system settings</p>
+        <p style={{ color: '#6b7280', fontSize: '1rem' }}>Manage inventory and upload data</p>
       </div>
 
       {/* Tab Navigation */}
@@ -67,29 +67,12 @@ function AdminPanel() {
           >
             CSV Upload
           </button>
-          <button
-            onClick={() => setActiveTab('config')}
-            style={{
-              padding: '0.75rem 1.5rem',
-              border: 'none',
-              background: 'none',
-              fontSize: '0.9375rem',
-              fontWeight: '500',
-              cursor: 'pointer',
-              borderBottom: activeTab === 'config' ? '2px solid #059669' : '2px solid transparent',
-              color: activeTab === 'config' ? '#059669' : '#6b7280',
-              marginBottom: '-2px',
-            }}
-          >
-            Configuration
-          </button>
         </div>
       </div>
 
       {/* Tab Content */}
       {activeTab === 'inventory' && <InventoryManagement />}
       {activeTab === 'upload' && <CsvUploadTab />}
-      {activeTab === 'config' && <ConfigurationTab />}
     </div>
   );
 }
@@ -98,10 +81,27 @@ function AdminPanel() {
 function InventoryManagement() {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ id: number; itemNumber: string } | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: items, isLoading } = useQuery({
     queryKey: ['inventory'],
     queryFn: USE_MOCK_DATA ? async () => mockInventoryItems : () => inventoryApi.getAll({}),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => inventoryApi.deleteItem(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      setShowDeleteModal(false);
+      setItemToDelete(null);
+      alert('Item deleted successfully');
+    },
+    onError: (error: any) => {
+      alert(`Error deleting item: ${error.response?.data?.error || error.message}`);
+    },
   });
 
   const openEditModal = (item: InventoryItem) => {
@@ -114,16 +114,39 @@ function InventoryManagement() {
     setEditingItem(null);
   };
 
+  const openDeleteModal = (id: number, itemNumber: string) => {
+    setItemToDelete({ id, itemNumber });
+    setShowDeleteModal(true);
+  };
+
+  const handleDelete = () => {
+    if (itemToDelete) {
+      deleteMutation.mutate(itemToDelete.id);
+    }
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setItemToDelete(null);
+  };
+
   const updateField = (field: keyof InventoryItem, value: any) => {
     if (editingItem) {
       setEditingItem({ ...editingItem, [field]: value });
     }
   };
 
-  const handleSave = () => {
-    // In production, this would call an API to update the item
-    alert('Item updated successfully (demo mode)');
-    closeEditModal();
+  const handleSave = async () => {
+    if (!editingItem) return;
+
+    try {
+      await inventoryApi.updateItem(editingItem.id, editingItem);
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      alert('Item updated successfully');
+      closeEditModal();
+    } catch (error: any) {
+      alert(`Error updating item: ${error.response?.data || error.message}`);
+    }
   };
 
   if (isLoading) {
@@ -155,8 +178,8 @@ function InventoryManagement() {
               {items?.map(item => (
                 <tr key={item.id}>
                   <td><strong>{item.itemNumber}</strong></td>
-                  <td>{item.hardwareDescription}</td>
-                  <td>{item.hardwareType}</td>
+                  <td>{item.description || item.hardwareDescription}</td>
+                  <td>{item.category || item.hardwareType}</td>
                   <td>
                     <span className={item.needsReorder ? 'badge badge-danger' : 'badge badge-success'}>
                       {item.currentQuantity}
@@ -166,13 +189,45 @@ function InventoryManagement() {
                   <td>{item.minimumThreshold}</td>
                   <td>{item.reorderAmount}</td>
                   <td>
-                    <button
-                      className="btn btn-secondary"
-                      onClick={() => openEditModal(item)}
-                      style={{ fontSize: '0.8125rem', padding: '0.5rem 1rem' }}
-                    >
-                      Edit
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => openEditModal(item)}
+                        style={{ fontSize: '0.8125rem', padding: '0.5rem 1rem' }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn btn-danger"
+                        onClick={() => openDeleteModal(item.id, item.itemNumber)}
+                        style={{
+                          fontSize: '0.8125rem',
+                          padding: '0.5rem 0.75rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title="Delete item"
+                        aria-label="Delete item"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          <line x1="10" y1="11" x2="10" y2="17"></line>
+                          <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -215,18 +270,32 @@ function InventoryManagement() {
               <input
                 type="text"
                 className="form-control"
-                value={editingItem.hardwareDescription}
-                onChange={e => updateField('hardwareDescription', e.target.value)}
+                value={editingItem.description || editingItem.hardwareDescription || ''}
+                onChange={e => {
+                  // Update the appropriate field based on asset type
+                  if (editingItem.assetType === 'Software' || editingItem.description) {
+                    updateField('description', e.target.value);
+                  } else {
+                    updateField('hardwareDescription', e.target.value);
+                  }
+                }}
               />
             </div>
 
             <div className="form-group">
-              <label>Hardware Type</label>
+              <label>Category / Type</label>
               <input
                 type="text"
                 className="form-control"
-                value={editingItem.hardwareType}
-                onChange={e => updateField('hardwareType', e.target.value)}
+                value={editingItem.category || editingItem.hardwareType || ''}
+                onChange={e => {
+                  // Update the appropriate field based on asset type
+                  if (editingItem.assetType === 'Software' || editingItem.category) {
+                    updateField('category', e.target.value);
+                  } else {
+                    updateField('hardwareType', e.target.value);
+                  }
+                }}
               />
             </div>
 
@@ -277,6 +346,56 @@ function InventoryManagement() {
               </button>
               <button className="btn btn-primary" onClick={handleSave}>
                 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && itemToDelete && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div className="card" style={{ width: '500px', maxWidth: '90%' }}>
+            <h2 style={{ color: '#dc2626' }}>Delete Inventory Item</h2>
+            <p style={{ marginBottom: '1.5rem', color: '#374151' }}>
+              Are you sure you want to delete <strong>{itemToDelete.itemNumber}</strong>?
+            </p>
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fca5a5',
+              borderRadius: '0.5rem',
+              marginBottom: '1.5rem',
+            }}>
+              <p style={{ color: '#991b1b', fontSize: '0.875rem', margin: 0 }}>
+                <strong>Warning:</strong> This action cannot be undone. All audit history for this item will also be deleted.
+              </p>
+            </div>
+            <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={closeDeleteModal}
+                disabled={deleteMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete Item'}
               </button>
             </div>
           </div>
@@ -359,58 +478,6 @@ function CsvUploadTab() {
             Download Template
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-// Configuration Tab
-function ConfigurationTab() {
-  const [config, setConfig] = useState({
-    adGroupName: 'ITS-ServiceDesk-Team',
-    additionalEmailRecipients: 'admin@company.com, manager@company.com',
-  });
-
-  const handleSave = () => {
-    // In production, this would call configApi.updateNotificationConfig(config)
-    alert('Configuration saved successfully (demo mode)');
-  };
-
-  return (
-    <div>
-      <div className="card">
-        <h2>Notification Configuration</h2>
-        <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-          Configure who receives low stock notifications
-        </p>
-
-        <div className="form-group">
-          <label>Active Directory Group Name</label>
-          <input
-            type="text"
-            className="form-control"
-            value={config.adGroupName}
-            onChange={e => setConfig({ ...config, adGroupName: e.target.value })}
-            placeholder="e.g., ITS-ServiceDesk-Team"
-          />
-          <small>Members of this AD group will receive low stock alerts</small>
-        </div>
-
-        <div className="form-group">
-          <label>Additional Email Recipients</label>
-          <textarea
-            className="form-control"
-            rows={3}
-            value={config.additionalEmailRecipients}
-            onChange={e => setConfig({ ...config, additionalEmailRecipients: e.target.value })}
-            placeholder="Comma-separated email addresses"
-          />
-          <small>Additional emails to notify (comma-separated)</small>
-        </div>
-
-        <button className="btn btn-primary" onClick={handleSave}>
-          Save Configuration
-        </button>
       </div>
     </div>
   );

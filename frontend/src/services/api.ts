@@ -15,6 +15,7 @@ const api = axios.create({
   withCredentials: true, // Required for Windows Authentication
   headers: {
     'Content-Type': 'application/json',
+    'X-Username': 'admin', // Development authentication
   },
 });
 
@@ -34,6 +35,15 @@ export const inventoryApi = {
 
   getById: async (id: number): Promise<InventoryItem> => {
     const response = await api.get<InventoryItem>(`/inventory/${id}`);
+    return response.data;
+  },
+
+  getAllAuditHistory: async (params?: { limit?: number; search?: string }): Promise<AuditHistory[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', String(params.limit));
+    if (params?.search) queryParams.append('search', params.search);
+
+    const response = await api.get<AuditHistory[]>(`/inventory/audit-history?${queryParams.toString()}`);
     return response.data;
   },
 
@@ -57,9 +67,18 @@ export const inventoryApi = {
     return response.data;
   },
 
+  updateItem: async (id: number, item: InventoryItem): Promise<InventoryItem> => {
+    const response = await api.put(`/inventory/${id}`, item);
+    return response.data;
+  },
+
   getDashboardStats: async (): Promise<DashboardStats> => {
     const response = await api.get<DashboardStats>('/inventory/dashboard-stats');
     return response.data;
+  },
+
+  deleteItem: async (id: number): Promise<void> => {
+    await api.delete(`/inventory/${id}`);
   },
 };
 

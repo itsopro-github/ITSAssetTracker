@@ -1,0 +1,429 @@
+Work Item Type,ID,Title,Description,Acceptance Criteria,Priority,Story Points,Remaining Work,Tags,Parent
+Epic,1,User Authentication & Authorization,Implement Windows Authentication integration with Active Directory for secure user access and role-based authorization,,1,,,Authentication;Security,
+Feature,2,Windows Authentication Integration,Enable Windows Authentication to automatically identify users through Active Directory credentials,,1,,,Authentication,1
+User Story,3,User Login with Windows Credentials,As a corporate user I want to automatically log in using my Windows credentials so that I don't need separate login credentials,"- User is automatically authenticated when accessing the application
+- Username is retrieved from Windows identity
+- No separate login form is required
+- Failed authentication shows appropriate error message",1,5,,Authentication;Login,2
+Task,4,Configure ASP.NET Core Windows Authentication,Enable Windows Authentication in ASP.NET Core middleware and disable anonymous authentication,,1,,8,Backend,3
+Task,5,Implement User Identity Extraction,Extract username and identity information from Windows authentication context,,1,,4,Backend,3
+Task,6,Configure CORS for Windows Auth,Set up CORS policy to support Windows authentication from React frontend,,1,,4,Backend,3
+Task,7,Test Authentication Flow,Test Windows authentication with different browsers and AD scenarios,,2,,4,Testing,3
+Feature,8,Role-Based Access Control,Implement role-based authorization using Active Directory groups to control user permissions,,1,,,Authorization;RBAC,1
+User Story,9,Service Desk Full Access,As a member of IT_ServiceDesk group I want to have full access to all features so that I can manage inventory and configurations,"- Service Desk users can view all pages
+- Service Desk users can edit inventory
+- Service Desk users can upload CSV files
+- Service Desk users can modify configurations
+- Service Desk users see Admin link in navigation",1,8,,Authorization,8
+Task,10,Create AD Group Authorization Attribute,Build custom authorization attribute to check AD group membership,,1,,8,Backend,9
+Task,11,Implement Active Directory Service,Create service to query AD for user group membership,,1,,8,Backend,9
+Task,12,Apply Authorization to Controllers,Apply ADGroupAuthorization attribute to protected endpoints,,1,,4,Backend,9
+Task,13,Update Frontend User Context,Store user roles in React context from /api/user/me endpoint,,1,,4,Frontend,9
+Task,14,Conditionally Show UI Elements,Show/hide buttons and navigation based on user roles,,1,,4,Frontend,9
+User Story,15,Read-Only User Access,As a member of IT_ReadOnly group I want to view inventory data without editing capabilities so that I can monitor stock levels,"- Read-Only users can view Dashboard
+- Read-Only users can view Inventory List
+- Read-Only users can view Audit Log
+- Read-Only users cannot see Assign buttons
+- Read-Only users cannot see Admin link
+- Read-Only users cannot upload CSV",1,5,,Authorization,8
+Task,16,Implement Read-Only Permission Checks,Check for IT_ReadOnly group membership and set appropriate role flags,,1,,4,Backend,15
+Task,17,Hide Edit Controls for Read-Only Users,Conditionally hide all edit buttons and forms for read-only users,,1,,4,Frontend,15
+Task,18,Test Role-Based UI Rendering,Verify UI renders correctly for different user roles,,2,,4,Testing,15
+Epic,19,Inventory Management System,Core inventory tracking functionality including item management and quantity updates,,1,,,Inventory,
+Feature,20,Inventory Display & Navigation,Provide multiple views of inventory data with filtering and sorting capabilities,,1,,,Inventory;UI,19
+User Story,21,View Inventory Dashboard,As a user I want to see an overview dashboard with key metrics and charts so that I can quickly understand inventory status,"- Dashboard displays total items count
+- Dashboard shows low stock items count
+- Dashboard displays total inventory value
+- Dashboard shows inventory breakdown chart by category
+- Dashboard displays recent changes table (last 10)
+- All statistics update in real-time",1,8,,Dashboard;UI,20
+Task,22,Create Dashboard Statistics API,Build GET /api/inventory/dashboard-stats endpoint to aggregate statistics,,1,,6,Backend,21
+Task,23,Build Dashboard Layout,Create Dashboard page component with card-based layout,,1,,8,Frontend,21
+Task,24,Implement Statistics Cards,Create reusable card components for displaying key metrics,,1,,4,Frontend,21
+Task,25,Add Recharts Inventory Chart,Implement bar/pie chart showing inventory by category using Recharts,,1,,6,Frontend,21
+Task,26,Build Recent Changes Table,Display recent audit history in table format with styling,,1,,4,Frontend,21
+User Story,27,View Inventory as Category Tiles,As a user I want to see inventory grouped by category in a tile view so that I can quickly find items by type,"- Inventory items are grouped by category
+- Each tile shows category name and total quantity
+- Tiles display with visual card design
+- Clicking tile expands to show items in that category
+- Tile shows item count for category
+- Tiles are responsive and adapt to screen size",1,8,,Inventory;UI,20
+Task,28,Group Inventory Items by Category,Implement client-side grouping logic to aggregate items by category,,1,,4,Frontend,27
+Task,29,Create Category Tile Component,Build reusable tile component with category info and styling,,1,,6,Frontend,27
+Task,30,Implement Tile Expand/Collapse,Add click handler to expand tile and show detailed item table,,1,,4,Frontend,27
+Task,31,Style Tiles with CSS,Apply card styling with shadows and hover effects,,2,,4,Frontend,27
+User Story,32,Filter and Search Inventory,As a user I want to filter and search inventory items so that I can quickly find specific items,"- Search bar filters by item number and description
+- Filter by asset type (Hardware/Software)
+- Filter by category dropdown
+- Filter by low stock status checkbox
+- Multiple filters work together
+- Search is debounced to avoid excessive API calls
+- Clear filters option available",1,8,,Inventory;Search,20
+Task,33,Add Query Parameters to API,Implement search assetType category needsReorder query params in GET /api/inventory,,1,,6,Backend,32
+Task,34,Build Search Input Component,Create search bar with debounced input handler,,1,,4,Frontend,32
+Task,35,Create Filter Dropdowns,Build asset type and category filter dropdowns,,1,,4,Frontend,32
+Task,36,Add Low Stock Checkbox Filter,Implement needs reorder checkbox filter,,1,,2,Frontend,32
+Task,37,Combine Filters in API Request,Combine all active filters into single API request,,1,,4,Frontend,32
+User Story,38,Sort Inventory Data,As a user I want to sort inventory by different columns so that I can organize data meaningfully,"- Sort by Item Number
+- Sort by Description
+- Sort by Type/Category
+- Sort by Asset Type
+- Sort by Quantity
+- Sort by Cost
+- Sort by Last Modified Date
+- Toggle ascending/descending order
+- Sort indicator shown on column headers",1,5,,Inventory;Sorting,20
+Task,39,Add Sorting Parameters to API,Implement sortBy and sortDesc query parameters in backend,,1,,6,Backend,38
+Task,40,Create Sortable Column Headers,Build table header components with sort indicators and click handlers,,1,,6,Frontend,38
+Task,41,Implement Sort State Management,Track current sort column and direction in component state,,1,,4,Frontend,38
+Task,42,Apply Sorting to All Tables,Apply sorting functionality to category view and main table,,1,,4,Frontend,38
+Feature,43,Inventory Quantity Management,Enable authorized users to update inventory quantities with audit trail,,1,,,Inventory;Updates,19
+User Story,44,Assign Inventory Items,As a Service Desk user I want to update inventory quantities when assigning items so that stock levels stay accurate,"- Assign button available on inventory items
+- Modal opens to enter quantity change
+- Support negative values for removing items
+- Optional ServiceNow ticket URL field
+- Prevent quantity from going below zero
+- Show previous and new quantity on success
+- Update reflects immediately in UI",1,13,,Inventory;Assignment,43
+Task,45,Create Update Quantity API Endpoint,Build POST /api/inventory/update-quantity with authorization,,1,,8,Backend,44
+Task,46,Validate Quantity Changes,Ensure new quantity cannot be negative add validation logic,,1,,4,Backend,44
+Task,47,Create Assignment Modal Component,Build modal with quantity input and ServiceNow URL field,,1,,8,Frontend,44
+Task,48,Implement Quantity Change Logic,Calculate new quantity from current + change amount,,1,,4,Frontend,44
+Task,49,Add TanStack Mutation for Update,Create useMutation hook to call update-quantity endpoint,,1,,4,Frontend,44
+Task,50,Show Success/Error Messages,Display toast or alert messages on success or error,,1,,4,Frontend,44
+Task,51,Refresh Inventory After Update,Invalidate TanStack Query cache to refresh inventory list,,1,,2,Frontend,44
+User Story,52,Disable Assign Button When Out of Stock,As a user I want assign buttons disabled for zero-quantity items so that I cannot assign unavailable items,"- Assign button is disabled when currentQuantity = 0
+- Disabled button has reduced opacity (50%)
+- Disabled button shows not-allowed cursor
+- Tooltip displays 'Out of stock' on hover
+- Applies to all three button locations (tiles expanded view main table)
+- Button re-enables when stock is replenished",1,5,,Inventory;UX,43
+Task,53,Add Disabled State to Tile Buttons,Check tile.totalQuantity = 0 and disable button with styling,,1,,2,Frontend,52
+Task,54,Add Disabled State to Expanded View Buttons,Check item.currentQuantity = 0 in expanded category table,,1,,2,Frontend,52
+Task,55,Add Disabled State to Main Table Buttons,Check item.currentQuantity = 0 in main inventory table,,1,,2,Frontend,52
+Task,56,Add Out of Stock Tooltips,Add title attribute with 'Out of stock' message to all disabled buttons,,1,,2,Frontend,52
+Feature,57,Admin Panel Item Management,Allow administrators to create edit and delete inventory items,,1,,,Inventory;Admin,19
+User Story,58,Edit Inventory Item Details,As an admin I want to edit inventory item details so that I can correct errors and update information,"- Admin can click Edit button on any item
+- Modal opens with pre-filled form
+- Edit item number description category cost thresholds
+- Validation prevents empty required fields
+- Changes save to database
+- Last modified by and date updated
+- UI refreshes with updated data",1,13,,Admin;Inventory,57
+Task,59,Create PUT /api/inventory/{id} Endpoint,Build endpoint to update inventory item with authorization,,1,,6,Backend,58
+Task,60,Build Edit Item Modal Component,Create modal form with all inventory fields,,1,,8,Frontend,58
+Task,61,Pre-fill Form with Current Values,Load existing item data into form fields,,1,,4,Frontend,58
+Task,62,Implement Form Validation,Validate required fields and data types before submission,,1,,4,Frontend,58
+Task,63,Create Update Mutation,Build TanStack mutation to call PUT endpoint,,1,,4,Frontend,58
+Task,64,Handle Update Success/Error,Show messages and refresh data on success,,1,,2,Frontend,58
+User Story,65,Create New Inventory Item,As an admin I want to add new inventory items so that I can expand the inventory catalog,"- Admin clicks Add New Item button
+- Modal opens with empty form
+- Enter item number description category cost thresholds quantity
+- Validation ensures item number is unique
+- Item saves to database
+- New item appears in inventory list immediately",2,8,,Admin;Inventory,57
+Task,66,Create POST /api/inventory Endpoint,Build endpoint to create new inventory item,,1,,6,Backend,65
+Task,67,Check for Duplicate Item Numbers,Validate that item number doesn't already exist,,1,,4,Backend,65
+Task,68,Add Create Item Button and Modal,Build Add New button and creation form modal,,1,,6,Frontend,65
+Task,69,Implement Create Form Validation,Validate all required fields for new items,,1,,4,Frontend,65
+Task,70,Create Insert Mutation,Build mutation to call POST endpoint,,1,,4,Frontend,65
+User Story,71,Delete Inventory Item,As an admin I want to delete inventory items so that I can remove discontinued or obsolete items,"- Admin clicks Delete button on item
+- Confirmation dialog appears
+- Dialog warns about permanent deletion
+- Confirm button deletes item from database
+- Associated audit history is preserved
+- Item removed from UI immediately",2,5,,Admin;Inventory,57
+Task,72,Create DELETE /api/inventory/{id} Endpoint,Build endpoint to soft or hard delete inventory item,,1,,6,Backend,71
+Task,73,Handle Audit History on Delete,Decide whether to preserve or cascade delete audit records,,1,,4,Backend,71
+Task,74,Build Delete Confirmation Dialog,Create modal asking user to confirm deletion,,1,,4,Frontend,71
+Task,75,Implement Delete Mutation,Create mutation to call DELETE endpoint,,1,,4,Frontend,71
+Task,76,Remove Item from UI on Success,Update cache to remove deleted item from list,,1,,2,Frontend,71
+Epic,77,Audit & Reporting,Complete audit trail and reporting capabilities for inventory changes,,1,,,Audit;Reporting,
+Feature,78,Audit History Tracking,Automatically track all inventory changes with detailed history,,1,,,Audit,77
+User Story,79,Automatic Audit Logging,As the system I want to automatically log all inventory changes so that there is a complete audit trail,"- Every quantity change creates audit entry
+- Audit records previous quantity and new quantity
+- Audit captures username of person making change
+- Audit records timestamp of change
+- ServiceNow ticket URL captured if provided
+- Audit entries linked to inventory items
+- Audit records cannot be modified or deleted",1,8,,Audit;Backend,78
+Task,80,Create AuditHistory Table Schema,Design and create audit history database table,,1,,4,Backend,79
+Task,81,Add Audit Entry on Quantity Update,Insert audit record in update-quantity endpoint,,1,,4,Backend,79
+Task,82,Add Audit Entry on CSV Upload,Create audit entries for each item changed via CSV,,1,,4,Backend,79
+Task,83,Add Audit Entry on Admin Edit,Log changes made through admin panel,,1,,4,Backend,79
+Task,84,Link Audit to Inventory Item,Ensure foreign key relationship between audit and inventory,,1,,2,Backend,79
+User Story,85,View Complete Audit History,As a user I want to view all inventory changes across all items so that I can see complete system activity,"- Audit log page displays all changes
+- Table shows date/time item number description previous qty new qty change amount changed by ServiceNow ticket
+- Most recent changes appear first
+- Display includes item details inline
+- Click row navigates to inventory page
+- Pagination or infinite scroll for large datasets",1,8,,Audit;UI,78
+Task,86,Create GET /api/inventory/audit-history Endpoint,Build endpoint to return all audit history records,,1,,6,Backend,85
+Task,87,Include Item Details in Response,Join inventory table to include item info with audit records,,1,,4,Backend,85
+Task,88,Build Audit Log Page Component,Create AuditLog page with table layout,,1,,8,Frontend,85
+Task,89,Format Audit Data in Table,Display all audit fields in readable table format,,1,,4,Frontend,85
+Task,90,Add Color Coding for Changes,Show increases in green decreases in red,,1,,4,Frontend,85
+Task,91,Link to ServiceNow Tickets,Make ServiceNow URLs clickable links that open in new tab,,1,,2,Frontend,85
+User Story,92,Search Audit History,As a user I want to search audit history so that I can find specific changes,"- Search bar at top of audit log
+- Search by item number
+- Search by changed by username
+- Search by description
+- Search is debounced
+- Results filter in real-time
+- Show count of matching records",1,5,,Audit;Search,78
+Task,93,Add Search Parameter to Audit API,Implement search query parameter in audit-history endpoint,,1,,4,Backend,92
+Task,94,Search Across Multiple Fields,Search item number changed by and description fields,,1,,4,Backend,92
+Task,95,Build Audit Search Component,Create search input with debouncing,,1,,4,Frontend,92
+Task,96,Display Search Result Count,Show number of records found,,1,,2,Frontend,92
+User Story,97,View Item-Specific Audit History,As a user I want to see audit history for a specific item so that I can track changes to that item over time,"- View audit button on inventory items
+- Modal or page shows filtered history for one item
+- Chronological order of all changes
+- Same details as main audit log
+- Close button returns to inventory",2,5,,Audit;UI,78
+Task,98,Create GET /api/inventory/{id}/audit-history Endpoint,Build endpoint to return audit history for specific item,,1,,4,Backend,97
+Task,99,Build Item Audit Modal Component,Create modal to display item-specific history,,1,,6,Frontend,97
+Task,100,Add View History Button to Items,Add button to open audit history modal,,1,,2,Frontend,97
+Task,101,Filter Audit Records by Item,Query audit history for specific item ID,,1,,2,Frontend,97
+Epic,102,Email Notification System,Automated email alerts for low stock inventory items,,1,,,Email;Alerts,
+Feature,103,SMTP Configuration,Configure SMTP settings for sending email alerts,,1,,,Email;Configuration,102
+User Story,104,Configure SMTP Settings,As a developer I want to configure SMTP settings so that the system can send emails,"- SMTP settings stored in appsettings.json
+- Configuration includes host port username password
+- Support for SSL/TLS encryption
+- From address and display name configurable
+- Settings loaded at application startup
+- Settings validated on startup",1,5,,Email;Configuration,103
+Task,105,Add Email Section to appsettings.json,Define configuration schema for email settings,,1,,2,Backend,104
+Task,106,Create Email Configuration Model,Build C# model to hold email settings,,1,,2,Backend,104
+Task,107,Load Configuration in Startup,Bind configuration to model in Program.cs,,1,,2,Backend,104
+Task,108,Validate SMTP Settings,Check that required settings are present,,1,,2,Backend,104
+User Story,109,Configure Notification Recipients,As an admin I want to configure who receives low stock alerts so that the right people are notified,"- Configuration page in admin panel
+- Enter AD group name to notify
+- Add additional email addresses (comma-separated)
+- Settings saved to database
+- Settings persist across restarts
+- Only Service Desk users can modify",1,8,,Email;Configuration,103
+Task,110,Create NotificationConfig Table,Design and create notification configuration table,,1,,4,Backend,109
+Task,111,Create Configuration Controller,Build GET and PUT endpoints for notification config,,1,,6,Backend,109
+Task,112,Build Configuration UI Component,Create form for editing notification settings,,1,,6,Frontend,109
+Task,113,Save Configuration to Database,Persist settings to NotificationConfig table,,1,,4,Frontend,109
+Feature,114,Low Stock Alerting,Automatically send emails when inventory falls below threshold,,1,,,Email;Alerts,102
+User Story,115,Send Low Stock Email Alerts,As the system I want to automatically send email alerts when stock falls below threshold so that staff can reorder items,"- Alert sent when quantity drops to or below minimum threshold
+- Alert sent only when crossing threshold (not repeatedly)
+- Email includes item number description current quantity minimum threshold
+- Email includes link to web application
+- Email sent to configured AD group members
+- Email sent to additional configured addresses
+- Email logged in application logs",1,13,,Email;Alerts,114
+Task,116,Create Email Service Interface,Define IEmailService interface with SendLowStockAlert method,,1,,4,Backend,115
+Task,117,Implement SMTP Email Service,Build concrete implementation using SmtpClient,,1,,8,Backend,115
+Task,118,Query AD Group for Email Addresses,Use Active Directory service to get group member emails,,1,,6,Backend,115
+Task,119,Build Email Template,Create HTML email template for low stock alerts,,1,,6,Backend,115
+Task,120,Check Threshold After Quantity Update,Compare new quantity vs threshold after updates,,1,,4,Backend,115
+Task,121,Prevent Duplicate Alert Emails,Only send alert when transitioning from above to below threshold,,1,,4,Backend,115
+Task,122,Handle Email Send Failures,Log errors and continue processing if email fails,,1,,4,Backend,115
+Task,123,Test Email Functionality,Send test emails to verify SMTP configuration,,2,,4,Testing,115
+Epic,124,Bulk Data Management,CSV upload capabilities for bulk inventory import and updates,,1,,,CSV;BulkImport,
+Feature,125,CSV File Upload,Allow authorized users to upload CSV files to bulk update inventory,,1,,,CSV;Upload,124
+User Story,126,Upload CSV File,As a Service Desk user I want to upload a CSV file so that I can update multiple inventory items at once,"- Upload CSV button in admin panel
+- File picker accepts .csv files only
+- File validates on selection
+- Progress indicator during upload
+- Success message shows items processed
+- Error message shows failures with details
+- Results show success count and failure count
+- Failed rows listed with error reasons",1,13,,CSV;Upload,125
+Task,127,Create CSV Upload Controller,Build POST /api/csvupload endpoint with multipart/form-data,,1,,6,Backend,126
+Task,128,Add File Type Validation,Ensure uploaded file is .csv extension,,1,,2,Backend,126
+Task,129,Build CSV Upload UI Component,Create file input and upload button in admin panel,,1,,6,Frontend,126
+Task,130,Add Upload Progress Indicator,Show loading spinner during upload processing,,1,,4,Frontend,126
+Task,131,Display Upload Results,Show success/failure counts and error details,,1,,6,Frontend,126
+User Story,132,Process CSV File Contents,As the system I want to parse and process CSV file contents so that inventory data is updated correctly,"- Parse CSV rows with proper column mapping
+- Handle existing items: update quantity and fields
+- Handle new items: create inventory records
+- Validate data types and required fields
+- Create audit entries for each change
+- Detect and prevent duplicate item numbers in file
+- Continue processing on row errors
+- Return detailed results with errors",1,21,,CSV;Processing,125
+Task,133,Create CSV Processing Service,Build ICsvProcessingService interface and implementation,,1,,8,Backend,132
+Task,134,Parse CSV File Stream,Use CSV parser library to read and parse rows,,1,,6,Backend,132
+Task,135,Map CSV Columns to Model,Map CSV columns to inventory entity properties,,1,,4,Backend,132
+Task,136,Implement Upsert Logic,Check if item exists and update or insert accordingly,,1,,8,Backend,132
+Task,137,Validate Each CSV Row,Validate data types required fields constraints,,1,,6,Backend,132
+Task,138,Create Audit Entries for CSV Changes,Log each quantity change from CSV upload,,1,,4,Backend,132
+Task,139,Calculate Quantity Deltas,Determine if quantity increased or decreased,,1,,4,Backend,132
+Task,140,Handle Row-Level Errors,Catch errors per row and continue processing file,,1,,4,Backend,132
+Task,141,Build Result Summary Object,Return counts of success/failures and error list,,1,,4,Backend,132
+User Story,142,Download CSV Template,As a user I want to download a CSV template so that I know the correct format for uploads,"- Download Template button available
+- Template includes correct column headers
+- Template includes 2-3 sample rows
+- Template downloads as .csv file
+- Template matches expected upload format
+- Column headers documented",1,3,,CSV;Template,125
+Task,143,Create CSV Template Endpoint,Build GET /api/csvupload/template endpoint,,1,,4,Backend,142
+Task,144,Generate Template with Headers and Samples,Create CSV content with headers and example data,,1,,4,Backend,142
+Task,145,Return File as Download,Set content-type and content-disposition headers,,1,,2,Backend,142
+Task,146,Add Download Button to UI,Add Download Template button in CSV upload section,,1,,2,Frontend,142
+Feature,147,CSV Data Validation,Validate CSV data to prevent errors and data corruption,,1,,,CSV;Validation,124
+User Story,148,Validate CSV Data Quality,As the system I want to validate CSV data before importing so that only valid data enters the database,"- Validate required fields are present
+- Validate data types (numbers decimals dates)
+- Validate item numbers are not empty
+- Validate quantities are non-negative
+- Validate costs are valid decimals
+- Validate thresholds are positive integers
+- Provide clear error messages for each validation
+- Reject entire row if validation fails",1,13,,CSV;Validation,147
+Task,149,Add Required Field Validation,Check that item number description are not empty,,1,,4,Backend,148
+Task,150,Add Data Type Validation,Ensure quantity cost threshold are valid numbers,,1,,4,Backend,148
+Task,151,Add Business Rule Validation,Validate quantities >= 0 thresholds > 0 etc,,1,,4,Backend,148
+Task,152,Generate Descriptive Error Messages,Create clear error messages indicating what failed,,1,,4,Backend,148
+Task,153,Test with Invalid CSV Data,Create test cases with various invalid data scenarios,,2,,6,Testing,148
+Epic,154,Frontend Infrastructure,Core React application setup and infrastructure,,1,,,Frontend;Infrastructure,
+Feature,155,React Application Setup,Initialize and configure React application with required dependencies,,1,,,Frontend;Setup,154
+User Story,156,Set Up React Application,As a developer I want a React application with TypeScript so that I can build a type-safe frontend,"- React 18 application created with Vite
+- TypeScript configured
+- ESLint and Prettier configured
+- Basic folder structure created
+- Development server runs on port 3000
+- Hot module replacement works",1,5,,Frontend;Setup,155
+Task,157,Initialize Vite React TypeScript Project,Run create vite command with React TypeScript template,,1,,4,Frontend,156
+Task,158,Configure TypeScript Settings,Set up tsconfig.json with strict mode,,1,,2,Frontend,156
+Task,159,Set Up ESLint and Prettier,Configure code linting and formatting,,1,,4,Frontend,156
+Task,160,Create Folder Structure,Set up folders for pages components services types,,1,,2,Frontend,156
+Task,161,Configure Vite for Proxy,Set up proxy to backend API in vite.config.ts,,1,,4,Frontend,156
+User Story,162,Install Core Dependencies,As a developer I want to install required npm packages so that I have all needed libraries,"- React Router v6 installed
+- TanStack Query installed
+- Axios installed
+- Recharts installed
+- All dependencies in package.json
+- npm install runs successfully",1,3,,Frontend;Dependencies,155
+Task,163,Install React Router,npm install react-router-dom,,1,,2,Frontend,162
+Task,164,Install TanStack Query,npm install @tanstack/react-query,,1,,2,Frontend,162
+Task,165,Install Axios,npm install axios,,1,,2,Frontend,162
+Task,166,Install Recharts,npm install recharts,,1,,2,Frontend,162
+Feature,167,API Integration Layer,Set up centralized API client and service layer,,1,,,Frontend;API,154
+User Story,168,Create API Service Layer,As a developer I want a centralized API client so that all HTTP requests are handled consistently,"- Axios instance configured with base URL
+- API client has methods for all endpoints
+- Request interceptors configured
+- Response interceptors configured
+- Error handling centralized
+- TypeScript types for all API calls",1,8,,Frontend;API,167
+Task,169,Create Axios Instance,Set up axios instance with baseURL and default config,,1,,4,Frontend,168
+Task,170,Build Inventory API Service,Create inventoryApi object with all inventory methods,,1,,6,Frontend,168
+Task,171,Build User API Service,Create userApi object with user methods,,1,,4,Frontend,168
+Task,172,Build CSV Upload API Service,Create csvApi object with upload methods,,1,,4,Frontend,168
+Task,173,Add Request Interceptors,Add interceptors for logging or auth tokens if needed,,2,,2,Frontend,168
+Task,174,Add Response Interceptors,Add interceptors for global error handling,,2,,4,Frontend,168
+Task,175,Define TypeScript API Types,Create interfaces for all API request/response types,,1,,6,Frontend,168
+User Story,176,Set Up TanStack Query,As a developer I want TanStack Query configured so that I can manage server state efficiently,"- QueryClient created and configured
+- QueryClientProvider wraps app
+- Default options configured
+- DevTools available in development
+- Cache invalidation strategy defined",1,5,,Frontend;State,167
+Task,177,Create QueryClient Instance,Initialize QueryClient with default options,,1,,2,Frontend,176
+Task,178,Wrap App with QueryClientProvider,Add provider in App.tsx or main.tsx,,1,,2,Frontend,176
+Task,179,Configure Default Query Options,Set refetchOnWindowFocus retry staleTime,,1,,4,Frontend,176
+Task,180,Add React Query DevTools,Install and configure devtools for development,,2,,2,Frontend,176
+Feature,181,Routing and Navigation,Set up React Router and navigation structure,,1,,,Frontend;Routing,154
+User Story,182,Implement Application Routing,As a user I want to navigate between different pages so that I can access different features,"- Dashboard route at /
+- Inventory route at /inventory
+- Audit Log route at /audit-log
+- Admin route at /admin
+- Navigation bar with links
+- Active route highlighted
+- Admin link only visible to admins",1,8,,Frontend;Routing,181
+Task,183,Set Up BrowserRouter,Wrap app with BrowserRouter component,,1,,2,Frontend,182
+Task,184,Create Routes Configuration,Define Routes with path and element for each page,,1,,4,Frontend,182
+Task,185,Create Navigation Component,Build nav bar with links to all pages,,1,,6,Frontend,182
+Task,186,Implement Conditional Admin Link,Show/hide Admin link based on user role,,1,,2,Frontend,182
+Task,187,Add Active Link Styling,Highlight current active route in navigation,,1,,4,Frontend,182
+User Story,188,Create Page Components,As a developer I want page components for each route so that content displays correctly,"- Dashboard page component
+- InventoryList page component
+- AuditLog page component
+- AdminPanel page component
+- Each page has basic layout structure
+- Pages are lazy-loaded if needed",1,5,,Frontend;Pages,181
+Task,189,Create Dashboard Page Component,Build Dashboard.tsx with layout,,1,,4,Frontend,188
+Task,190,Create InventoryList Page Component,Build InventoryList.tsx with layout,,1,,4,Frontend,188
+Task,191,Create AuditLog Page Component,Build AuditLog.tsx with layout,,1,,4,Frontend,188
+Task,192,Create AdminPanel Page Component,Build AdminPanel.tsx with layout,,1,,4,Frontend,188
+Feature,193,Error Handling & User Feedback,Implement global error handling and user notifications,,1,,,Frontend;ErrorHandling,154
+User Story,194,Implement Error Boundary,As a user I want graceful error handling so that application crashes don't break the entire app,"- React Error Boundary component
+- Catches errors in component tree
+- Shows fallback UI on error
+- Logs errors to console
+- Provides retry or reload option",1,5,,Frontend;ErrorHandling,193
+Task,195,Create ErrorBoundary Component,Build error boundary using componentDidCatch,,1,,6,Frontend,194
+Task,196,Design Error Fallback UI,Create user-friendly error message UI,,1,,4,Frontend,194
+Task,197,Wrap App with ErrorBoundary,Add error boundary at top level,,1,,2,Frontend,194
+Task,198,Add Error Logging,Log errors to console or external service,,2,,2,Frontend,194
+User Story,199,Display Loading States,As a user I want to see loading indicators so that I know when data is being fetched,"- Loading spinner component
+- Shown during API calls
+- Shown during page loads
+- Consistent loading indicator design
+- Loading text optional",2,3,,Frontend;UX,193
+Task,200,Create Loading Spinner Component,Build reusable spinner component with CSS animation,,1,,4,Frontend,199
+Task,201,Show Loading During Queries,Use isLoading from TanStack Query to show spinner,,1,,2,Frontend,199
+Task,202,Add Loading Text Labels,Add descriptive text like 'Loading inventory...',,2,,2,Frontend,199
+Epic,203,Backend Infrastructure,Core ASP.NET API setup and infrastructure,,1,,,Backend;Infrastructure,
+Feature,204,ASP.NET Core API Setup,Initialize and configure ASP.NET Core Web API project,,1,,,Backend;Setup,203
+User Story,205,Set Up ASP.NET Core API,As a developer I want an ASP.NET Core API so that I can build backend services,"- .NET 8 Web API project created
+- Project structure with Controllers Services Data folders
+- Program.cs configured
+- Development server runs on port 5000
+- Swagger/OpenAPI configured",1,5,,Backend;Setup,204
+Task,206,Create ASP.NET Core Web API Project,Use dotnet new webapi command,,1,,2,Backend,205
+Task,207,Configure Program.cs,Set up services middleware and app configuration,,1,,6,Backend,205
+Task,208,Create Folder Structure,Set up Controllers Services Data Models Middleware folders,,1,,2,Backend,205
+Task,209,Configure CORS Policy,Allow frontend origin with credentials,,1,,4,Backend,205
+Task,210,Enable Swagger,Configure Swagger for API documentation,,1,,4,Backend,205
+User Story,211,Configure Logging,As a developer I want logging configured so that I can debug and monitor the application,"- ASP.NET Core logging enabled
+- Log levels configured
+- Console logging works
+- File logging optional
+- Structured logging format",2,3,,Backend;Logging,204
+Task,212,Configure Logging in Program.cs,Set up logging providers and minimum levels,,1,,4,Backend,211
+Task,213,Add Logging to Controllers,Inject ILogger and add log statements,,1,,4,Backend,211
+Task,214,Add Logging to Services,Inject ILogger in services and log key operations,,1,,4,Backend,211
+Feature,215,Database Setup,Configure Entity Framework Core and SQLite database,,1,,,Backend;Database,203
+User Story,216,Set Up Entity Framework Core,As a developer I want Entity Framework Core configured so that I can interact with the database,"- EF Core packages installed
+- DbContext class created
+- Connection string configured
+- Migrations enabled
+- Database created successfully",1,8,,Backend;Database,215
+Task,217,Install EF Core Packages,Install Microsoft.EntityFrameworkCore.Sqlite and tools,,1,,2,Backend,216
+Task,218,Create AssetTrackerDbContext,Build DbContext class with DbSet properties,,1,,6,Backend,216
+Task,219,Configure Connection String,Add SQLite connection string to appsettings.json,,1,,2,Backend,216
+Task,220,Register DbContext in DI,Add DbContext to service collection in Program.cs,,1,,2,Backend,216
+Task,221,Enable EF Core Tools,Ensure dotnet ef commands work,,1,,2,Backend,216
+User Story,222,Create Database Schema,As a developer I want database tables created so that I can store inventory data,"- Inventory table created
+- AuditHistory table created
+- NotificationConfig table created
+- Relationships configured
+- Migrations applied successfully",1,8,,Backend;Database,215
+Task,223,Create Inventory Entity Model,Define Inventory class with all properties,,1,,6,Backend,222
+Task,224,Create AuditHistory Entity Model,Define AuditHistory class with foreign key to Inventory,,1,,6,Backend,222
+Task,225,Create NotificationConfig Entity Model,Define NotificationConfig class,,1,,4,Backend,222
+Task,226,Configure Entity Relationships,Set up foreign keys and navigation properties,,1,,4,Backend,222
+Task,227,Create Initial Migration,Run dotnet ef migrations add InitialCreate,,1,,2,Backend,222
+Task,228,Apply Migration to Database,Run dotnet ef database update,,1,,2,Backend,222
+User Story,229,Seed Initial Data,As a developer I want sample data in the database so that I can test the application,"- Seed method created
+- Sample inventory items inserted
+- Sample categories included
+- Seed runs on application startup
+- Seed only runs if database is empty",2,5,,Backend;Database,215
+Task,230,Create Database Seeding Method,Build method to insert sample data,,1,,6,Backend,229
+Task,231,Check if Database Already Has Data,Query to see if seeding is needed,,1,,2,Backend,229
+Task,232,Insert Sample Inventory Items,Add 10-15 sample items with varied data,,1,,4,Backend,229
+Task,233,Call Seed Method on Startup,Invoke seeding in Program.cs after migrations,,1,,2,Backend,229
+Feature,234,Dependency Injection Configuration,Configure services and dependency injection,,1,,,Backend;DI,203
+User Story,235,Register Application Services,As a developer I want services registered in DI container so that they can be injected where needed,"- IEmailService registered
+- ICsvProcessingService registered
+- IActiveDirectoryService registered
+- Services have appropriate lifetime
+- Services resolve correctly",1,5,,Backend;DI,234
+Task,236,Register Email Service,Add IEmailService and implementation to service collection,,1,,2,Backend,235
+Task,237,Register CSV Processing Service,Add ICsvProcessingService to DI container,,1,,2,Backend,235
+Task,238,Register Active Directory Service,Add IActiveDirectoryService to DI container,,1,,2,Backend,235
+Task,239,Choose Service Lifetimes,Decide between Scoped Transient Singleton for each service,,1,,4,Backend,235
+Task,240,Test Service Resolution,Verify services inject correctly in controllers,,2,,2,Backend,235

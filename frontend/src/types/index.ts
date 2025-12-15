@@ -18,7 +18,9 @@ export interface InventoryItem {
 
 export interface AuditHistory {
   id: number;
-  itemId: number;
+  itemId: number | null;
+  itemNumber?: string;
+  itemDescription?: string;
   previousQuantity: number;
   newQuantity: number;
   changedBy: string;
